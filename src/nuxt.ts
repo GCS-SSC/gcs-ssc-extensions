@@ -18,11 +18,11 @@ export interface GcsFetchResult<T> {
 
 export interface GcsExtensionEvent {
   context: {
-    $db: any
+    $db: unknown
     $authContext?: {
       userAbilities: {
-        authorizeWithTeam: (...args: any[]) => Promise<boolean>
-        authorize: (...args: any[]) => boolean
+        authorizeWithTeam: (...args: unknown[]) => Promise<boolean>
+        authorize: (...args: unknown[]) => boolean
       }
       userId: string
     }
