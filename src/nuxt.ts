@@ -16,7 +16,29 @@ export interface GcsFetchResult<T> {
   refresh: () => Promise<void>
 }
 
+export interface GcsExtensionEvent {
+  context: {
+    $db: any
+    $authContext?: {
+      userAbilities: {
+        authorizeWithTeam: (...args: any[]) => Promise<boolean>
+        authorize: (...args: any[]) => boolean
+      }
+      userId: string
+    }
+    params?: Record<string, string | undefined>
+  }
+  node?: {
+    res?: {
+      statusCode?: number
+      statusMessage?: string
+    }
+  }
+}
+
 declare global {
+  type EventHandler<T = unknown> = (event: GcsExtensionEvent) => T | Promise<T>
+
   const useI18n: () => GcsI18nComposer
 
   const useFetch: <T = unknown>(
