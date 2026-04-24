@@ -1,0 +1,44 @@
+{
+  "name": "@gcs-ssc/extensions",
+  "version": "0.1.0",
+  "description": "Public extension SDK contracts for GCS-SSC extensions.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GCS-SSC/gcs-ssc-extensions.git"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "files": [
+    "README.md",
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./server": {
+      "types": "./src/server.ts",
+      "import": "./src/server.ts"
+    },
+    "./testing": {
+      "types": "./src/testing.ts",
+      "import": "./src/testing.ts"
+    }
+  },
+  "peerDependencies": {
+    "kysely": "^0.28.11",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "kysely": "^0.28.11",
+    "typescript": "^5.9.3",
+    "zod": "^4.3.6"
+  }
+}
