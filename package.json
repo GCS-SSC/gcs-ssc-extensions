@@ -30,6 +30,10 @@
     "./testing": {
       "types": "./src/testing.ts",
       "import": "./src/testing.ts"
+    },
+    "./nuxt": {
+      "types": "./src/nuxt.ts",
+      "import": "./src/nuxt.ts"
     }
   },
   "peerDependencies": {

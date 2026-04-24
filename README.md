@@ -23,6 +23,7 @@ The host application may also consume this package through a local workspace whi
 - `@gcs-ssc/extensions` exposes manifest, JSON, and client-safe extension types.
 - `@gcs-ssc/extensions/server` exposes server-safe schemas and route helpers.
 - `@gcs-ssc/extensions/testing` exposes test-only helpers for extension repositories.
+- `@gcs-ssc/extensions/nuxt` exposes minimal ambient Nuxt host globals for standalone extension typechecking.
 
 ## Import Rules
 
@@ -32,6 +33,16 @@ Extension packages should not import from host application aliases such as `~~/s
 import { defineGcsExtension } from '@gcs-ssc/extensions'
 import type { GcsExtensionJsonConfig } from '@gcs-ssc/extensions'
 import { AssessmentDefinitionSchema, resolveExtensionStreamContext } from '@gcs-ssc/extensions/server'
+```
+
+For standalone Vue/Nuxt extension typechecking, include the ambient host declarations in the extension `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "types": ["@gcs-ssc/extensions/nuxt"]
+  }
+}
 ```
 
 ## Validation
