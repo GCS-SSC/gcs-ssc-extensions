@@ -3,6 +3,7 @@ export type JsonValue = string | number | boolean | null | JsonValue[] | { [key:
 export type GcsExtensionSlot =
   | 'textarea.after'
   | 'agreement.descriptions.after'
+  | 'proponent.descriptions.after'
 
 export type GcsTextareaTargetLocale = 'en' | 'fr'
 
