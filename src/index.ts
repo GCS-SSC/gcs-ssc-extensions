@@ -92,6 +92,14 @@ export interface GcsExtensionServerHandlerDefinition {
   path: string
 }
 
+export interface GcsExtensionRuntimeResolverDefinition {
+  path: string
+}
+
+export interface GcsExtensionMigrationDefinition {
+  path: string
+}
+
 export interface GcsExtensionDefinition {
   key: string
   name: {
@@ -113,10 +121,12 @@ export interface GcsExtensionDefinition {
   i18n?: GcsExtensionI18nDefinition
   assets?: GcsExtensionAssetDefinition[]
   serverHandlers?: GcsExtensionServerHandlerDefinition[]
+  migrations?: GcsExtensionMigrationDefinition[]
+  runtime?: GcsExtensionRuntimeResolverDefinition
   nitroPlugin?: string
 }
 
-export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admin' | 'client' | 'css' | 'i18n' | 'assets' | 'serverHandlers' | 'nitroPlugin'> {
+export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admin' | 'client' | 'css' | 'i18n' | 'assets' | 'serverHandlers' | 'migrations' | 'runtime' | 'nitroPlugin'> {
   packageName: string
   rootDir: string
   admin: {
@@ -137,9 +147,26 @@ export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admi
     method?: 'get' | 'post' | 'put' | 'patch' | 'delete'
     path: string
   }>
+  migrations: Array<{
+    key: string
+    path: string
+  }>
+  runtime?: GcsExtensionRuntimeResolverDefinition
   nitroPlugin?: string
 }
 
 export type GcsExtensionJsonConfig = Record<string, JsonValue>
+
+export interface GcsExtensionRuntimeContext {
+  slot: GcsExtensionSlot
+  streamId?: string
+  agencyId?: string
+  applicantRecipientId?: string
+}
+
+export interface GcsExtensionRuntimeResolution {
+  enabled: boolean
+  config?: GcsExtensionJsonConfig
+}
 
 export const defineGcsExtension = (definition: GcsExtensionDefinition): GcsExtensionDefinition => definition

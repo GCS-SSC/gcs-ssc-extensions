@@ -1,5 +1,10 @@
 import { z } from 'zod'
+import type { Migration } from 'kysely'
 import type { JsonValue } from './index'
+
+export type GcsExtensionMigration = Migration
+
+export const defineGcsExtensionMigration = <T extends GcsExtensionMigration>(migration: T): T => migration
 
 export type ExtensionScope =
   | { type: 'global' }

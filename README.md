@@ -32,8 +32,47 @@ Extension packages should not import from host application aliases such as `~~/s
 ```ts
 import { defineGcsExtension } from '@gcs-ssc/extensions'
 import type { GcsExtensionJsonConfig } from '@gcs-ssc/extensions'
-import { AssessmentDefinitionSchema, resolveExtensionStreamContext } from '@gcs-ssc/extensions/server'
+import {
+  AssessmentDefinitionSchema,
+  defineGcsExtensionMigration,
+  resolveExtensionStreamContext
+} from '@gcs-ssc/extensions/server'
 ```
+
+## Extension Database Migrations
+
+Extensions may declare explicit Kysely migration files in `extension.config.ts`:
+
+```ts
+export default defineGcsExtension({
+  key: 'gcs-example',
+  name: { en: 'Example', fr: 'Exemple' },
+  migrations: [
+    { path: './server/migrations/0001_items.ts' }
+  ]
+})
+```
+
+Migration paths are resolved by the host scanner and must stay inside the extension package directory. Escaped paths and symlinks that resolve outside the package are rejected.
+
+Migration files should export a Kysely migration, and may use the server helper for typechecking:
+
+```ts
+import { defineGcsExtensionMigration } from '@gcs-ssc/extensions/server'
+
+export default defineGcsExtensionMigration({
+  async up(db) {
+    await db.schema
+      .createTable('extensions.gcs_example_items')
+      .addColumn('id', 'bigserial', col => col.primaryKey())
+      .execute()
+  }
+})
+```
+
+Custom extension tables should live in the existing `extensions` schema and use a sanitized extension-key prefix. For example, `gcs-example` owns tables such as `extensions.gcs_example_items`. The host records migration history in extension-specific tables in the same `extensions` schema.
+
+The host applies pending migrations when an agency enables an extension. The agency extension UI also exposes a manual action for enabled extensions that applies pending migrations after an extension update. Already-recorded migration files are not re-run, so extension updates must add new migration files for new database changes.
 
 For standalone Vue/Nuxt extension typechecking, include the ambient host declarations in the extension `tsconfig.json`:
 
