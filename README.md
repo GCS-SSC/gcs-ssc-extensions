@@ -45,6 +45,33 @@ import {
 
 ## Entity Tabs And RBAC
 
+## Stream Configuration Components
+
+Extensions can render a stream-level configuration component with `admin.streamConfig`.
+The host passes the editable JSON config with `v-model` plus stable stream context props:
+
+```vue
+<script setup lang="ts">
+import type { GcsExtensionJsonConfig, GcsResolvedExtension } from '@gcs-ssc/extensions'
+
+const {
+  extension,
+  streamId,
+  transferPaymentId,
+  agencyId
+} = defineProps<{
+  extension: GcsResolvedExtension
+  streamId: string
+  transferPaymentId?: string
+  agencyId?: string
+}>()
+
+const config = defineModel<GcsExtensionJsonConfig>({ required: true })
+</script>
+```
+
+`transferPaymentId` is the owning transfer payment profile id. `agencyId` is the owning agency id when the host already has it loaded. Components should still tolerate either optional prop being absent for older hosts.
+
 Extensions can add tabs to funding case agreements, proponents, claims, and monitors through `client.tabs`:
 
 ```ts
