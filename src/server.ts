@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import type { Migration } from 'kysely'
-import type { JsonValue } from './index'
+import type { Kysely, Migration } from 'kysely'
+import type { GcsExtensionEntityTabTarget, GcsExtensionRbacRequirement, JsonValue } from './index'
 
 export type GcsExtensionMigration = Migration
 
@@ -23,6 +23,38 @@ export interface ExtensionStreamContext {
   profileId: string
   streamId: string
   scope: ExtensionScope
+}
+
+export type ExtensionEntityOwnerType =
+  | 'fundingcaseagreement'
+  | 'applicantrecipient'
+  | 'fundingcaseagreementclaim'
+  | 'fundingcaseagreementmonitor'
+
+export interface ExtensionEntityTabContext {
+  target: GcsExtensionEntityTabTarget
+  agencyId: string
+  streamId?: string
+  agreementId?: string
+  applicantRecipientId?: string
+  claimId?: string
+  monitorId?: string
+  ownerType: ExtensionEntityOwnerType
+  ownerId: string
+  scope: ExtensionScope
+  rbac: GcsExtensionRbacRequirement
+}
+
+type ExtensionKvDatabase = {
+  'extensions.kv_entry': {
+    id: unknown
+    extension_key: string
+    owner_type: string
+    owner_id: string
+    config_key: string
+    value: JsonValue
+    _deleted: boolean
+  }
 }
 
 export interface ExtensionStreamContextDatabase {
@@ -253,4 +285,113 @@ export const resolveExtensionStreamContext = async (
       ]
     }
   }
+}
+
+/**
+ * Creates or updates a host-managed extension key-value entry.
+ *
+ * @param db Minimal Kysely-compatible host database client.
+ * @param extensionKey Extension manifest key.
+ * @param ownerType Host entity owner type.
+ * @param ownerId Host entity owner id.
+ * @param configKey Extension-owned value key.
+ * @param value JSON value to store.
+ * @returns Inserted or updated row when the host adapter returns it.
+ */
+export const setExtensionKvEntry = async (
+  db: Kysely<ExtensionKvDatabase>,
+  extensionKey: string,
+  ownerType: string,
+  ownerId: string,
+  configKey: string,
+  value: JsonValue
+) => {
+  const existing = await db
+    .selectFrom('extensions.kv_entry')
+    .select('id')
+    .where('extension_key', '=', extensionKey)
+    .where('owner_type', '=', ownerType)
+    .where('owner_id', '=', ownerId)
+    .where('config_key', '=', configKey)
+    .where('_deleted', '=', false)
+    .executeTakeFirst()
+
+  if (existing) {
+    return await db
+      .updateTable('extensions.kv_entry')
+      .set({ value })
+      .where('id', '=', existing.id)
+      .returningAll()
+      .executeTakeFirst()
+  }
+
+  return await db
+    .insertInto('extensions.kv_entry')
+    .values({
+      extension_key: extensionKey,
+      owner_type: ownerType,
+      owner_id: ownerId,
+      config_key: configKey,
+      value,
+      _deleted: false
+    })
+    .returningAll()
+    .executeTakeFirst()
+}
+
+/**
+ * Reads a host-managed extension key-value entry.
+ *
+ * @param db Minimal Kysely-compatible host database client.
+ * @param extensionKey Extension manifest key.
+ * @param ownerType Host entity owner type.
+ * @param ownerId Host entity owner id.
+ * @param configKey Extension-owned value key.
+ * @returns Stored JSON value, or null when absent.
+ */
+export const getExtensionKvEntry = async (
+  db: Kysely<ExtensionKvDatabase>,
+  extensionKey: string,
+  ownerType: string,
+  ownerId: string,
+  configKey: string
+): Promise<JsonValue | null> => {
+  const row = await db
+    .selectFrom('extensions.kv_entry')
+    .select('value')
+    .where('extension_key', '=', extensionKey)
+    .where('owner_type', '=', ownerType)
+    .where('owner_id', '=', ownerId)
+    .where('config_key', '=', configKey)
+    .where('_deleted', '=', false)
+    .executeTakeFirst()
+
+  return row ? row.value : null
+}
+
+/**
+ * Soft-deletes a host-managed extension key-value entry.
+ *
+ * @param db Minimal Kysely-compatible host database client.
+ * @param extensionKey Extension manifest key.
+ * @param ownerType Host entity owner type.
+ * @param ownerId Host entity owner id.
+ * @param configKey Extension-owned value key.
+ */
+export const deleteExtensionKvEntry = async (
+  db: Kysely<ExtensionKvDatabase>,
+  extensionKey: string,
+  ownerType: string,
+  ownerId: string,
+  configKey: string
+) => {
+  await db
+    .updateTable('extensions.kv_entry')
+    .set({ _deleted: true })
+    .where('extension_key', '=', extensionKey)
+    .where('owner_type', '=', ownerType)
+    .where('owner_id', '=', ownerId)
+    .where('config_key', '=', configKey)
+    .where('_deleted', '=', false)
+    .execute()
 }

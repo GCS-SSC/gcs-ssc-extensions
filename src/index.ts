@@ -5,6 +5,29 @@ export type GcsExtensionSlot =
   | 'agreement.descriptions.after'
   | 'proponent.descriptions.after'
 
+export type GcsExtensionRbacAction = 'create' | 'read' | 'update' | 'delete'
+
+export type GcsExtensionRbacSubject =
+  | 'all'
+  | 'agency'
+  | 'transfer_payment'
+  | 'role'
+  | 'user'
+  | 'applicant_recipient'
+  | 'agreement'
+
+export interface GcsExtensionRbacRequirement {
+  subject: GcsExtensionRbacSubject
+  action: GcsExtensionRbacAction
+}
+
+export type GcsExtensionEntityTabTarget = 'agreement' | 'proponent' | 'claim' | 'monitor'
+
+export interface GcsExtensionBilingualLabel {
+  en: string
+  fr: string
+}
+
 export type GcsTextareaTargetLocale = 'en' | 'fr'
 
 export type GcsTextareaKnownTargetKey =
@@ -74,6 +97,14 @@ export interface GcsExtensionSlotDefinition extends GcsExtensionComponentDefinit
   slot: GcsExtensionSlot
 }
 
+export interface GcsExtensionEntityTabDefinition extends GcsExtensionComponentDefinition {
+  target: GcsExtensionEntityTabTarget
+  id: string
+  label: GcsExtensionBilingualLabel
+  icon?: string
+  rbac: GcsExtensionRbacRequirement
+}
+
 export interface GcsExtensionI18nDefinition {
   en?: string
   fr?: string
@@ -90,6 +121,12 @@ export interface GcsExtensionServerHandlerDefinition {
   route: string
   method?: 'get' | 'post' | 'put' | 'patch' | 'delete'
   path: string
+  rbac?: GcsExtensionRbacRequirement & {
+    entity: {
+      target: GcsExtensionEntityTabTarget
+      param: string
+    }
+  }
 }
 
 export interface GcsExtensionRuntimeResolverDefinition {
@@ -116,6 +153,7 @@ export interface GcsExtensionDefinition {
   }
   client?: {
     slots?: GcsExtensionSlotDefinition[]
+    tabs?: GcsExtensionEntityTabDefinition[]
   }
   css?: string[]
   i18n?: GcsExtensionI18nDefinition
@@ -135,6 +173,9 @@ export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admi
   }
   client: {
     slots: GcsExtensionSlotDefinition[]
+    tabs: Array<GcsExtensionEntityTabDefinition & {
+      value?: string
+    }>
   }
   css: string[]
   i18n: GcsExtensionI18nDefinition
@@ -146,6 +187,7 @@ export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admi
     route: string
     method?: 'get' | 'post' | 'put' | 'patch' | 'delete'
     path: string
+    rbac?: GcsExtensionServerHandlerDefinition['rbac']
   }>
   migrations: Array<{
     key: string

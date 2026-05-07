@@ -9,6 +9,23 @@ export interface GcsI18nComposer {
 
 export type GcsFetchStatus = 'idle' | 'pending' | 'success' | 'error'
 
+export type GcsExtensionRbacAction = 'create' | 'read' | 'update' | 'delete'
+
+export type GcsExtensionRbacSubject =
+  | 'all'
+  | 'agency'
+  | 'transfer_payment'
+  | 'role'
+  | 'user'
+  | 'applicant_recipient'
+  | 'agreement'
+
+export type GcsExtensionScope =
+  | { type: 'global' }
+  | { type: 'agency'; agencyId: string }
+  | { type: 'program'; agencyId: string; transferPaymentId: string }
+  | { type: 'entity'; agencyId: string; path: Array<{ type: string; id: string }> }
+
 export interface GcsFetchResult<T> {
   data: GcsRef<T | null>
   status: GcsRef<GcsFetchStatus>
@@ -45,6 +62,24 @@ declare global {
     url: string | (() => string),
     options?: Record<string, unknown>
   ) => GcsFetchResult<T>
+
+  const useCan: () => {
+    can: (
+      subject: GcsExtensionRbacSubject,
+      action: GcsExtensionRbacAction,
+      scope?: GcsExtensionScope
+    ) => boolean
+    canGrant: (
+      subject: GcsExtensionRbacSubject,
+      action: GcsExtensionRbacAction,
+      scope?: GcsExtensionScope
+    ) => boolean
+    canAny: (checks: Array<{
+      subject: GcsExtensionRbacSubject
+      action: GcsExtensionRbacAction
+      scope?: GcsExtensionScope
+    }>) => boolean
+  }
 }
 
 export {}
