@@ -34,8 +34,10 @@ import { defineGcsExtension } from '@gcs-ssc/extensions'
 import type { GcsExtensionJsonConfig } from '@gcs-ssc/extensions'
 import {
   AssessmentDefinitionSchema,
+  createGcsExtensionUserError,
   getExtensionKvEntry,
   defineGcsExtensionMigration,
+  registerGcsExtensionCreateOperationHandler,
   setExtensionKvEntry,
   resolveExtensionStreamContext
 } from '@gcs-ssc/extensions/server'
@@ -116,6 +118,81 @@ export default defineGcsExtension({
 The host resolves the entity from the declared route param, verifies extension enablement, enforces RBAC, and then calls the extension handler. Handlers that do not declare `rbac` keep the existing authenticated dispatch behavior.
 
 Use only the RBAC subjects and actions already exposed by GCS-SSC. The extension SDK does not support custom RBAC subjects.
+
+## Commitment And Payment Create Actions
+
+Extensions can add or replace the create actions on agreement commitments and payments:
+
+```ts
+export default defineGcsExtension({
+  key: 'gcs-example',
+  name: { en: 'Example', fr: 'Exemple' },
+  client: {
+    createActions: [
+      {
+        operation: 'agreement.payments.create',
+        id: 'generate-payments',
+        mode: 'replace',
+        label: { en: 'Generate payments', fr: 'Generer les paiements' },
+        icon: 'i-lucide-wand-sparkles',
+        path: './components/GeneratePaymentsAction.vue',
+        rbac: { subject: 'agreement', action: 'update' }
+      }
+    ]
+  },
+  nitroPlugin: './server/plugins/create-hooks.ts'
+})
+```
+
+`mode: 'append'` keeps the host Add button and shows the extension action beside it. `mode: 'replace'` hides the host Add button when exactly one enabled replacement exists. If multiple enabled extensions replace the same operation, the host blocks the create action until configuration is fixed.
+
+Create action components receive `extensionKey`, `operation`, `context`, `config`, `rbac`, bilingual `label`, optional `icon`, and an `onCreated` callback prop. Call `onCreated()` after the extension route successfully creates records so the host refreshes the table.
+
+Extensions can intercept host create routes from a Nitro plugin:
+
+```ts
+import {
+  createGcsExtensionUserError,
+  getExtensionKvEntry,
+  registerGcsExtensionCreateOperationHandler
+} from '@gcs-ssc/extensions/server'
+
+export default defineNitroPlugin(nitroApp => {
+  registerGcsExtensionCreateOperationHandler('gcs-example', 'agreement.payments.create', async context => {
+    const source = await getExtensionKvEntry(
+      context.trx,
+      context.extensionKey,
+      'fundingcaseagreement',
+      context.agreementId,
+      'payment-rules'
+    )
+
+    if (!source) {
+      throw createGcsExtensionUserError({
+        code: 'GCS_EXAMPLE_PAYMENT_RULES_MISSING',
+        message: 'apiErrors.extensions.payment_rules_missing'
+      })
+    }
+
+    if (!context.createdRecord) {
+      const payment = await context.trx
+        .insertInto('Funding_Case_Agreement_Payment')
+        .values({ /* extension-generated values */ })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+
+      return { status: 'handled', response: payment }
+    }
+
+    await context.trx
+      .insertInto('extensions.gcs_example_audit')
+      .values({ payment_id: String(context.createdRecord.id) })
+      .execute()
+  }, nitroApp)
+})
+```
+
+When a handler returns `{ status: 'handled', response }` before the host insert, the host skips its default create logic and returns the extension response. When no handler takes over, the host creates the normal draft record and calls handlers again with `createdRecord` inside the same transaction. Throwing `createGcsExtensionUserError(...)` communicates a user-correctable error and rolls back the transaction. Unexpected errors also roll back and are treated as system errors.
 
 ## Extension Database Migrations
 

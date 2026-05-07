@@ -53,6 +53,12 @@ export interface GcsExtensionEvent {
   }
 }
 
+export interface GcsNitroApp {
+  hooks: {
+    hook: (name: string, handler: (...args: unknown[]) => unknown) => void
+  }
+}
+
 declare global {
   type EventHandler<T = unknown> = (event: GcsExtensionEvent) => T | Promise<T>
 
@@ -62,6 +68,10 @@ declare global {
     url: string | (() => string),
     options?: Record<string, unknown>
   ) => GcsFetchResult<T>
+
+  const defineNitroPlugin: (plugin: (nitroApp: GcsNitroApp) => unknown) => unknown
+
+  const useNitroApp: () => GcsNitroApp
 
   const useCan: () => {
     can: (

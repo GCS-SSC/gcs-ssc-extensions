@@ -1,10 +1,12 @@
 import { z } from 'zod'
 import type { Kysely, Migration } from 'kysely'
-import type { GcsExtensionEntityTabTarget, GcsExtensionRbacRequirement, JsonValue } from './index'
+import type { GcsExtensionCreateOperation, GcsExtensionEntityTabTarget, GcsExtensionJsonConfig, GcsExtensionRbacRequirement, JsonValue } from './index'
 
 export type GcsExtensionMigration = Migration
 
 export const defineGcsExtensionMigration = <T extends GcsExtensionMigration>(migration: T): T => migration
+
+export const GCS_EXTENSION_CREATE_OPERATION_HOOK = 'gcs:extension:create-operation'
 
 export type ExtensionScope =
   | { type: 'global' }
@@ -43,6 +45,131 @@ export interface ExtensionEntityTabContext {
   ownerId: string
   scope: ExtensionScope
   rbac: GcsExtensionRbacRequirement
+}
+
+export interface GcsExtensionCreateOperationContext {
+  operation: GcsExtensionCreateOperation
+  extensionKey: string
+  event: unknown
+  db: Kysely<unknown>
+  trx: Kysely<unknown>
+  agreementId: string
+  agencyId: string
+  streamId: string
+  scope: ExtensionScope
+  config: GcsExtensionJsonConfig
+  validatedBody: Record<string, unknown>
+  createdRecord?: Record<string, unknown>
+}
+
+export type GcsExtensionCreateOperationResult =
+  | {
+    status: 'handled'
+    response: unknown
+  }
+  | {
+    status: 'continue'
+  }
+
+export type GcsExtensionCreateOperationHandler = (
+  context: GcsExtensionCreateOperationContext
+) => Promise<GcsExtensionCreateOperationResult | void> | GcsExtensionCreateOperationResult | void
+
+export interface GcsExtensionCreateOperationHookPayload {
+  operation: GcsExtensionCreateOperation
+  enabledExtensionKeys: Set<string>
+  contexts: Record<string, Omit<GcsExtensionCreateOperationContext, 'extensionKey' | 'config'> & {
+    config: GcsExtensionJsonConfig
+  }>
+  results: Array<{
+    extensionKey: string
+    result: GcsExtensionCreateOperationResult
+  }>
+}
+
+type NitroHookRegistrar = {
+  hooks: {
+    hook: (
+      name: typeof GCS_EXTENSION_CREATE_OPERATION_HOOK,
+      handler: (payload: GcsExtensionCreateOperationHookPayload) => Promise<void> | void
+    ) => void
+  }
+}
+
+export interface GcsExtensionUserErrorOptions {
+  code: string
+  message: string
+  statusCode?: number
+  details?: Array<{
+    path: string
+    message: string
+    code?: string
+  }>
+}
+
+export class GcsExtensionUserError extends Error {
+  readonly code: string
+  readonly statusCode: number
+  readonly details?: GcsExtensionUserErrorOptions['details']
+
+  constructor(options: GcsExtensionUserErrorOptions) {
+    super(options.message)
+    this.name = 'GcsExtensionUserError'
+    this.code = options.code
+    this.statusCode = options.statusCode ?? 400
+    this.details = options.details
+  }
+}
+
+export const createGcsExtensionUserError = (options: GcsExtensionUserErrorOptions): GcsExtensionUserError =>
+  new GcsExtensionUserError(options)
+
+export const isGcsExtensionUserError = (error: unknown): error is GcsExtensionUserError =>
+  error instanceof GcsExtensionUserError
+  || (
+    Boolean(error)
+    && typeof error === 'object'
+    && (error as { name?: unknown }).name === 'GcsExtensionUserError'
+    && typeof (error as { code?: unknown }).code === 'string'
+    && typeof (error as { message?: unknown }).message === 'string'
+  )
+
+export const registerGcsExtensionCreateOperationHandler = (
+  extensionKey: string,
+  operation: GcsExtensionCreateOperation,
+  handler: GcsExtensionCreateOperationHandler,
+  nitroApp?: NitroHookRegistrar
+) => {
+  const resolvedNitroApp = nitroApp ?? (globalThis as typeof globalThis & {
+    useNitroApp?: () => NitroHookRegistrar
+  }).useNitroApp?.()
+
+  if (!resolvedNitroApp) {
+    throw new Error('GCS extension create operation handlers must be registered from a Nitro plugin.')
+  }
+
+  resolvedNitroApp.hooks.hook(GCS_EXTENSION_CREATE_OPERATION_HOOK, async payload => {
+    if (payload.operation !== operation || !payload.enabledExtensionKeys.has(extensionKey)) {
+      return
+    }
+
+    const context = payload.contexts[extensionKey]
+    if (!context) {
+      return
+    }
+
+    const result = await handler({
+      ...context,
+      extensionKey
+    })
+
+    if (result) {
+      payload.results.push({
+        extensionKey,
+        result
+      })
+    }
+  })
 }
 
 type ExtensionKvDatabase = {

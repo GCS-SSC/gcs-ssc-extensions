@@ -23,6 +23,12 @@ export interface GcsExtensionRbacRequirement {
 
 export type GcsExtensionEntityTabTarget = 'agreement' | 'proponent' | 'claim' | 'monitor'
 
+export type GcsExtensionCreateOperation =
+  | 'agreement.commitments.create'
+  | 'agreement.payments.create'
+
+export type GcsExtensionCreateActionMode = 'append' | 'replace'
+
 export interface GcsExtensionBilingualLabel {
   en: string
   fr: string
@@ -105,6 +111,15 @@ export interface GcsExtensionEntityTabDefinition extends GcsExtensionComponentDe
   rbac: GcsExtensionRbacRequirement
 }
 
+export interface GcsExtensionCreateActionDefinition extends GcsExtensionComponentDefinition {
+  operation: GcsExtensionCreateOperation
+  id: string
+  mode: GcsExtensionCreateActionMode
+  label: GcsExtensionBilingualLabel
+  icon?: string
+  rbac: GcsExtensionRbacRequirement
+}
+
 export interface GcsExtensionI18nDefinition {
   en?: string
   fr?: string
@@ -154,6 +169,7 @@ export interface GcsExtensionDefinition {
   client?: {
     slots?: GcsExtensionSlotDefinition[]
     tabs?: GcsExtensionEntityTabDefinition[]
+    createActions?: GcsExtensionCreateActionDefinition[]
   }
   css?: string[]
   i18n?: GcsExtensionI18nDefinition
@@ -174,6 +190,9 @@ export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admi
   client: {
     slots: GcsExtensionSlotDefinition[]
     tabs: Array<GcsExtensionEntityTabDefinition & {
+      value?: string
+    }>
+    createActions: Array<GcsExtensionCreateActionDefinition & {
       value?: string
     }>
   }
