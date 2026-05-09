@@ -24,6 +24,7 @@ The host application may also consume this package through a local workspace whi
 - `@gcs-ssc/extensions/server` exposes server-safe schemas and route helpers.
 - `@gcs-ssc/extensions/testing` exposes test-only helpers for extension repositories.
 - `@gcs-ssc/extensions/nuxt` exposes minimal ambient Nuxt host globals for standalone extension typechecking.
+- The Nuxt entry point also declares host-provided UI components used by extension screens, including `UBadge`, `UTable`, `UIcon`, and `CommonSaveButton`.
 
 ## Import Rules
 

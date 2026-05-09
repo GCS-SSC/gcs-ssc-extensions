@@ -1,3 +1,5 @@
+import type { Component } from 'vue'
+
 export interface GcsRef<T> {
   value: T
 }
@@ -90,6 +92,18 @@ declare global {
       scope?: GcsExtensionScope
     }>) => boolean
   }
+
+  const CommonSaveButton: Component
+  const UBadge: Component
+  const UButton: Component
+  const UCheckbox: Component
+  const UFormField: Component
+  const UIcon: Component
+  const UInput: Component
+  const UModal: Component
+  const USelect: Component
+  const USelectMenu: Component
+  const UTable: Component
 }
 
 export {}
