@@ -49,6 +49,7 @@ export interface ExtensionEntityTabContext {
 
 export interface GcsExtensionCreateOperationContext {
   operation: GcsExtensionCreateOperation
+  phase: 'before-create' | 'after-create'
   extensionKey: string
   event: unknown
   db: Kysely<unknown>

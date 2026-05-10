@@ -3,6 +3,9 @@ export type JsonValue = string | number | boolean | null | JsonValue[] | { [key:
 export type GcsExtensionSlot =
   | 'textarea.after'
   | 'agreement.descriptions.after'
+  | 'agreement.profile.classification.fields'
+  | 'agreement.profile.profile.fields'
+  | 'agreement.profile.sections.after'
   | 'proponent.descriptions.after'
 
 export type GcsExtensionRbacAction = 'create' | 'read' | 'update' | 'delete'
@@ -120,6 +123,13 @@ export interface GcsExtensionCreateActionDefinition extends GcsExtensionComponen
   rbac: GcsExtensionRbacRequirement
 }
 
+export interface GcsExtensionPaymentAmountCalculatorDefinition extends GcsExtensionComponentDefinition {
+  operation: 'agreement.payments.create'
+  id: string
+  label: GcsExtensionBilingualLabel
+  rbac: GcsExtensionRbacRequirement
+}
+
 export interface GcsExtensionI18nDefinition {
   en?: string
   fr?: string
@@ -170,6 +180,7 @@ export interface GcsExtensionDefinition {
     slots?: GcsExtensionSlotDefinition[]
     tabs?: GcsExtensionEntityTabDefinition[]
     createActions?: GcsExtensionCreateActionDefinition[]
+    paymentAmountCalculators?: GcsExtensionPaymentAmountCalculatorDefinition[]
   }
   css?: string[]
   i18n?: GcsExtensionI18nDefinition
@@ -193,6 +204,9 @@ export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admi
       value?: string
     }>
     createActions: Array<GcsExtensionCreateActionDefinition & {
+      value?: string
+    }>
+    paymentAmountCalculators: Array<GcsExtensionPaymentAmountCalculatorDefinition & {
       value?: string
     }>
   }
