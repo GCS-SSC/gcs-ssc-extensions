@@ -5,6 +5,7 @@ export type GcsExtensionSlot =
   | 'agreement.descriptions.after'
   | 'agreement.profile.classification.fields'
   | 'agreement.profile.profile.fields'
+  | 'agreement.profile.risk-management.fields'
   | 'agreement.profile.sections.after'
   | 'proponent.descriptions.after'
 

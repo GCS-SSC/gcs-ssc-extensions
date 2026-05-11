@@ -98,6 +98,23 @@ Tab paths are validated by the host scanner and must stay inside the extension p
 
 The host shows tabs only when the extension is enabled for the owning agency, stream-scoped entities are enabled for the transfer payment stream, and the current user passes the declared RBAC check. Proponent tabs use the proponent lead agency; proponents without a lead agency do not show extension tabs.
 
+Extensions can add inline fields to host-owned agreement profile sections through `client.slots`. For agreement risk data, use `agreement.profile.risk-management.fields`; the host owns the standard holdback, holdback basis, and risk score fields, and extension fields render inside the same Risk Management section.
+
+```ts
+export default defineGcsExtension({
+  key: 'gcs-example',
+  name: { en: 'Example', fr: 'Exemple' },
+  client: {
+    slots: [
+      {
+        slot: 'agreement.profile.risk-management.fields',
+        path: './components/AgreementRiskFields.vue'
+      }
+    ]
+  }
+})
+```
+
 Tab components receive the entity context and extension configuration as props:
 
 ```vue
