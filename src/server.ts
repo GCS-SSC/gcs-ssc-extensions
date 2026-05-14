@@ -97,27 +97,41 @@ type NitroHookRegistrar = {
   }
 }
 
+export type GcsExtensionLocalizedMessage =
+  | string
+  | {
+    en: string
+    fr: string
+  }
+
+export interface GcsExtensionUserErrorDetail {
+  path: string
+  message: GcsExtensionLocalizedMessage
+  code?: string
+}
+
 export interface GcsExtensionUserErrorOptions {
   code: string
-  message: string
+  message: GcsExtensionLocalizedMessage
   statusCode?: number
-  details?: Array<{
-    path: string
-    message: string
-    code?: string
-  }>
+  details?: GcsExtensionUserErrorDetail[]
 }
+
+const defaultLocalizedMessage = (message: GcsExtensionLocalizedMessage): string =>
+  typeof message === 'string' ? message : message.en
 
 export class GcsExtensionUserError extends Error {
   readonly code: string
   readonly statusCode: number
+  readonly localizedMessage: GcsExtensionLocalizedMessage
   readonly details?: GcsExtensionUserErrorOptions['details']
 
   constructor(options: GcsExtensionUserErrorOptions) {
-    super(options.message)
+    super(defaultLocalizedMessage(options.message))
     this.name = 'GcsExtensionUserError'
     this.code = options.code
     this.statusCode = options.statusCode ?? 400
+    this.localizedMessage = options.message
     this.details = options.details
   }
 }

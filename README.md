@@ -215,7 +215,17 @@ export default defineNitroPlugin(nitroApp => {
     if (!source) {
       throw createGcsExtensionUserError({
         code: 'GCS_EXAMPLE_PAYMENT_RULES_MISSING',
-        message: 'apiErrors.extensions.payment_rules_missing'
+        message: {
+          en: 'Configure payment rules before creating this payment.',
+          fr: 'Configurez les regles de paiement avant de creer ce paiement.'
+        },
+        details: [{
+          path: 'payment-rules',
+          message: {
+            en: 'Payment rules are missing.',
+            fr: 'Les regles de paiement sont manquantes.'
+          }
+        }]
       })
     }
 
@@ -238,6 +248,8 @@ export default defineNitroPlugin(nitroApp => {
 ```
 
 When a handler returns `{ status: 'handled', response }` before the host insert, the host skips its default create logic and returns the extension response. When no handler takes over, the host creates the normal draft record and calls handlers again with `createdRecord` inside the same transaction. Throwing `createGcsExtensionUserError(...)` communicates a user-correctable error and rolls back the transaction. Unexpected errors also roll back and are treated as system errors.
+
+Extension user errors own their messages. Pass bilingual message objects so the host can select `en` or `fr` from the request locale and return the resolved text in the standard API error payload. A plain string is treated as already-resolved extension text and is not translated by the host, so bilingual strings are preferred for user-facing errors.
 
 ## Extension Database Migrations
 
