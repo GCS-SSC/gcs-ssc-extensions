@@ -249,7 +249,89 @@ export default defineNitroPlugin(nitroApp => {
 
 When a handler returns `{ status: 'handled', response }` before the host insert, the host skips its default create logic and returns the extension response. When no handler takes over, the host creates the normal draft record and calls handlers again with `createdRecord` inside the same transaction. Throwing `createGcsExtensionUserError(...)` communicates a user-correctable error and rolls back the transaction. Unexpected errors also roll back and are treated as system errors.
 
-Extension user errors own their messages. Pass bilingual message objects so the host can select `en` or `fr` from the request locale and return the resolved text in the standard API error payload. A plain string is treated as already-resolved extension text and is not translated by the host, so bilingual strings are preferred for user-facing errors.
+### Extension-Owned User Errors
+
+Extensions own their user-facing rule and validation messages. Do not pass host i18n keys such as `validation.date_range` to `createGcsExtensionUserError(...)`; the host will not translate them for you. Instead, keep a small extension-owned error catalog and pass bilingual `{ en, fr }` message objects.
+
+The host resolves the request locale and serializes extension user errors as the standard API error payload:
+
+```json
+{
+  "data": {
+    "code": "GCS_EXAMPLE_PAYMENT_RULES_MISSING",
+    "message": "Configure payment rules before creating this payment.",
+    "details": [
+      {
+        "path": "payment-rules",
+        "code": "GCS_EXAMPLE_PAYMENT_RULES_MISSING",
+        "message": "Payment rules are missing."
+      }
+    ]
+  }
+}
+```
+
+Client components should display `data.details[0].message` when the error points at a specific field or option, then fall back to `data.message`. Host and extension UI code should not show `response.statusText` for extension route failures because that loses the helpful bilingual message.
+
+Recommended server pattern:
+
+```ts
+import {
+  createGcsExtensionUserError,
+  type GcsExtensionLocalizedMessage
+} from '@gcs-ssc/extensions/server'
+
+type ExampleErrorCode =
+  | 'GCS_EXAMPLE_INVALID_PAYMENT'
+  | 'GCS_EXAMPLE_PAYMENT_PERIOD_INVALID'
+
+const errorMessages: Record<ExampleErrorCode, GcsExtensionLocalizedMessage> = {
+  GCS_EXAMPLE_INVALID_PAYMENT: {
+    en: 'Review the payment fields before saving.',
+    fr: 'Verifiez les champs du paiement avant d enregistrer.'
+  },
+  GCS_EXAMPLE_PAYMENT_PERIOD_INVALID: {
+    en: 'Period end must be the same as or after period start.',
+    fr: 'La periode de fin doit etre identique ou posterieure a la periode de debut.'
+  }
+}
+
+const getMessage = (code: ExampleErrorCode) => errorMessages[code]
+
+export const createExamplePaymentError = (
+  code: ExampleErrorCode,
+  path?: string
+) => createGcsExtensionUserError({
+  code,
+  message: getMessage(code),
+  details: path
+    ? [{
+        path,
+        code,
+        message: getMessage(code)
+      }]
+    : undefined
+})
+```
+
+For extension-owned Zod validation, prefer mapping `safeParse` issues into `createGcsExtensionUserError(...)` details. The schema can use stable extension-owned issue codes, but the user-facing English/French text should still come from the extension error catalog:
+
+```ts
+const parsed = PaymentSchema.safeParse(await readBody(event))
+if (!parsed.success) {
+  throw createGcsExtensionUserError({
+    code: 'GCS_EXAMPLE_INVALID_PAYMENT',
+    message: getMessage('GCS_EXAMPLE_INVALID_PAYMENT'),
+    details: parsed.error.issues.map(issue => ({
+      path: issue.path.join('.'),
+      code: 'GCS_EXAMPLE_PAYMENT_PERIOD_INVALID',
+      message: getMessage('GCS_EXAMPLE_PAYMENT_PERIOD_INVALID')
+    }))
+  })
+}
+```
+
+Use stable, namespaced codes for tests and fallback handling, and write messages as next actions the user can take. For example, prefer “Select a fiscal year before calculating the automated payment.” over “Invalid request.”
 
 ## Extension Database Migrations
 

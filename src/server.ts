@@ -105,15 +105,45 @@ export type GcsExtensionLocalizedMessage =
   }
 
 export interface GcsExtensionUserErrorDetail {
+  /**
+   * Stable field or domain path for the problem, such as `egcs_fc_paymentamount`
+   * or `allocation.lines.0.amount`. The host serializes this path so clients can
+   * show field-specific messages when they choose to.
+   */
   path: string
+  /**
+   * Extension-owned user-facing message. Prefer `{ en, fr }` so the host can
+   * select the request locale. Plain strings are treated as already-resolved
+   * extension text and are not translated by the host.
+   */
   message: GcsExtensionLocalizedMessage
+  /**
+   * Optional stable extension-owned detail code for logs, tests, and client-side
+   * fallback handling.
+   */
   code?: string
 }
 
 export interface GcsExtensionUserErrorOptions {
+  /**
+   * Stable extension-owned error code. Prefix with the extension key or another
+   * unique namespace, for example `GCS_EXAMPLE_PAYMENT_RULES_MISSING`.
+   */
   code: string
+  /**
+   * Helpful, user-correctable, extension-owned message. Prefer bilingual
+   * messages. Do not pass host i18n keys here.
+   */
   message: GcsExtensionLocalizedMessage
+  /**
+   * Defaults to 400. Use 409 for conflicts or another 4xx when it better
+   * describes a user-correctable extension rule failure.
+   */
   statusCode?: number
+  /**
+   * Field/domain-specific detail messages. The host resolves bilingual details
+   * and returns them as `data.details[]` in the API error payload.
+   */
   details?: GcsExtensionUserErrorDetail[]
 }
 
