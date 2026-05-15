@@ -104,6 +104,7 @@ declare global {
   const USelect: Component
   const USelectMenu: Component
   const UTable: Component
+  const UTextarea: Component
 }
 
 export {}

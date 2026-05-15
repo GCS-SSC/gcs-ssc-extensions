@@ -399,6 +399,66 @@ const stored = await getExtensionKvEntry(
 
 Use the tab context `ownerType` and `ownerId` props when storing tab data for an agreement, proponent, claim, or monitor.
 
+Do not store private keys, API tokens, bearer tokens, refresh tokens, signing secrets, or other sensitive material in extension config or `extensions.kv_entry`. Extension configuration is editable through host UI and may be returned to client components. Key-value entries are JSON data for ordinary extension state, not a secret store.
+
+## Sensitive Secret Storage
+
+Extensions that need sensitive server-side values should use the encrypted secret helpers from `@gcs-ssc/extensions/server`:
+
+```ts
+import {
+  deleteEncryptedExtensionSecret,
+  getEncryptedExtensionSecret,
+  setEncryptedExtensionSecret
+} from '@gcs-ssc/extensions/server'
+
+await setEncryptedExtensionSecret(event.context.$db, {
+  rootKey: getRuntimeSecretRootKey(),
+  extensionKey: 'gcs-example',
+  ownerType: 'agency',
+  ownerId: agencyId,
+  secretKey: 'primary-api-key',
+  value: {
+    token: requestBody.token
+  },
+  metadata: {
+    label: 'Primary API key',
+    lastFour: requestBody.token.slice(-4)
+  }
+})
+
+const secret = await getEncryptedExtensionSecret(event.context.$db, {
+  rootKey: getRuntimeSecretRootKey(),
+  extensionKey: 'gcs-example',
+  ownerType: 'agency',
+  ownerId: agencyId,
+  secretKey: 'primary-api-key'
+})
+
+await deleteEncryptedExtensionSecret(
+  event.context.$db,
+  'gcs-example',
+  'agency',
+  agencyId,
+  'primary-api-key'
+)
+```
+
+The host stores encrypted secrets in `extensions.secret_entry`. The sensitive JSON `value` is encrypted with AES-256-GCM before it is written to the database. The table stores ciphertext, IV, authentication tag, algorithm, key version, owner identifiers, and optional metadata. Metadata is deliberately plaintext so UI can list non-sensitive details such as a credential label, key id, user id, or masked suffix. Never put the secret itself in metadata.
+
+Encryption uses authenticated additional data built from `extensionKey`, `ownerType`, `ownerId`, `secretKey`, and key version. That means ciphertext copied to another extension, owner, or secret key will not decrypt successfully. Updates replace the encrypted value for the active owner/key tuple, and deletes soft-delete the active row.
+
+The `rootKey` is the deployment secret that protects all extension secrets. In the host app this is supplied as `GCS_EXTENSION_SECRETS_KEY`, a base64-encoded 32-byte key. Keep this root key in deployment secret management, not in extension config, seed data, source control, or browser-visible runtime config. Rotating this key requires a deliberate migration or re-save flow because existing ciphertext was encrypted with the previous key.
+
+Recommended extension pattern:
+
+- Put the secret entry UI at the narrowest owner scope that makes sense, usually agency-level when multiple streams should reuse a credential.
+- Save the secret through an extension server route that enforces host RBAC before calling `setEncryptedExtensionSecret`.
+- Return only metadata from list routes. Do not return the decrypted `value` to browser code after saving.
+- Store only a stable reference such as `credentialId` in stream/entity config.
+- Decrypt with `getEncryptedExtensionSecret` only inside server routes, background jobs, or materializers that need the credential at runtime.
+- Use `deleteEncryptedExtensionSecret` for user-triggered credential removal so the secret follows the host soft-delete model.
+
 For standalone Vue/Nuxt extension typechecking, include the ambient host declarations in the extension `tsconfig.json`:
 
 ```json
