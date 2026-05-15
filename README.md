@@ -450,6 +450,8 @@ Encryption uses authenticated additional data built from `extensionKey`, `ownerT
 
 The `rootKey` is the deployment secret that protects all extension secrets. In the host app this is supplied as `GCS_EXTENSION_SECRETS_KEY`, a base64-encoded 32-byte key. Keep this root key in deployment secret management, not in extension config, seed data, source control, or browser-visible runtime config. Rotating this key requires a deliberate migration or re-save flow because existing ciphertext was encrypted with the previous key.
 
+Local demo data may deliberately seed non-production credentials with a fixed development root key so a clean dev database is immediately usable. Do not use that pattern for production or shared real environments.
+
 Recommended extension pattern:
 
 - Put the secret entry UI at the narrowest owner scope that makes sense, usually agency-level when multiple streams should reuse a credential.
