@@ -1,5 +1,105 @@
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
+const FETCH_ERROR_TEXT_LIMIT = 2_000
+
+/**
+ * Error thrown for failed browser fetch responses with parsed API payloads.
+ */
+export class FetchResponseError extends Error {
+  /** Parsed response payload. */
+  readonly data: unknown
+  /** Failed browser response. */
+  readonly response: Response
+
+  /**
+   * Creates a fetch response error.
+   *
+   * @param response - Failed browser response.
+   * @param data - Parsed response payload.
+   */
+  constructor(response: Response, data: unknown) {
+    const nestedMessage = data && typeof data === 'object' && 'data' in data
+      ? (data as { data?: { message?: unknown } }).data?.message
+      : undefined
+    const flatMessage = data && typeof data === 'object' && 'message' in data
+      ? (data as { message?: unknown }).message
+      : undefined
+    const rawMessage = nestedMessage ?? flatMessage
+    const message = rawMessage !== undefined && rawMessage !== null && String(rawMessage).length > 0
+      ? String(rawMessage)
+      : response.statusText || `HTTP ${response.status}`
+
+    super(message)
+    this.name = 'FetchResponseError'
+    this.data = data
+    this.response = response
+  }
+}
+
+/**
+ * Builds an absolute URL for browser fetch calls while keeping component tests
+ * usable in non-window environments.
+ *
+ * @param path - Relative or absolute request path.
+ * @returns URL object suitable for fetch.
+ */
+export const getClientRequestUrl = (path: string | URL): URL => {
+  if (path instanceof URL) {
+    return path
+  }
+
+  const browserGlobal = globalThis as {
+    window?: {
+      location?: {
+        origin?: string
+      }
+    }
+  }
+  const origin = typeof browserGlobal.window?.location?.origin === 'string'
+    ? browserGlobal.window.location.origin
+    : 'http://localhost'
+
+  return new URL(path, origin)
+}
+
+/**
+ * Throws a normalized error for failed browser fetch responses.
+ *
+ * @param response - Failed fetch response.
+ * @returns Never returns.
+ */
+export const throwFetchResponseError = async (response: Response): Promise<never> => {
+  let payload: unknown
+  try {
+    payload = await response.clone().json() as unknown
+  } catch {
+    payload = undefined
+  }
+
+  if (payload !== undefined) {
+    throw new FetchResponseError(response, payload)
+  }
+
+  const textBody = await response.clone().text().catch(() => '')
+  const trimmedTextBody = textBody.trim()
+  const truncatedTextBody = trimmedTextBody.length > FETCH_ERROR_TEXT_LIMIT
+    ? `${trimmedTextBody.slice(0, FETCH_ERROR_TEXT_LIMIT)}...`
+    : trimmedTextBody
+  const message = truncatedTextBody.length > 0
+    ? truncatedTextBody
+    : response.statusText.length > 0
+      ? response.statusText
+      : `HTTP ${response.status}`
+  throw new FetchResponseError(response, {
+    data: {
+      message
+    },
+    status: response.status,
+    statusText: response.statusText,
+    text: truncatedTextBody
+  })
+}
+
 export type GcsExtensionSlot =
   | 'textarea.after'
   | 'agreement.descriptions.after'
@@ -163,6 +263,12 @@ export interface GcsExtensionMigrationDefinition {
   path: string
 }
 
+export interface GcsExtensionAdminDefinition {
+  agency?: GcsExtensionComponentDefinition
+  streamConfig?: GcsExtensionComponentDefinition
+  streamConfigPage?: GcsExtensionComponentDefinition
+}
+
 export interface GcsExtensionDefinition {
   key: string
   name: {
@@ -173,10 +279,7 @@ export interface GcsExtensionDefinition {
     en: string
     fr: string
   }
-  admin?: {
-    agency?: GcsExtensionComponentDefinition
-    streamConfig?: GcsExtensionComponentDefinition
-  }
+  admin?: GcsExtensionAdminDefinition
   client?: {
     slots?: GcsExtensionSlotDefinition[]
     tabs?: GcsExtensionEntityTabDefinition[]
@@ -195,10 +298,7 @@ export interface GcsExtensionDefinition {
 export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admin' | 'client' | 'css' | 'i18n' | 'assets' | 'serverHandlers' | 'migrations' | 'runtime' | 'nitroPlugin'> {
   packageName: string
   rootDir: string
-  admin: {
-    agency?: GcsExtensionComponentDefinition
-    streamConfig?: GcsExtensionComponentDefinition
-  }
+  admin: GcsExtensionAdminDefinition
   client: {
     slots: GcsExtensionSlotDefinition[]
     tabs: Array<GcsExtensionEntityTabDefinition & {

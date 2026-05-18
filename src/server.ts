@@ -285,24 +285,35 @@ const bytesToBase64 = (bytes: Uint8Array): string => {
   return output
 }
 
-const base64ToBytes = (value: string): Uint8Array<ArrayBuffer> => {
+const normalizeBase64Secret = (value: string, fieldName: string): string => {
   const normalized = value.replace(/\s/g, '')
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(normalized) || normalized.length % 4 !== 0) {
-    throw new Error('Extension secret root key must be base64 encoded.')
+  if (normalized.length === 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(normalized) || normalized.length % 4 !== 0) {
+    throw new Error(`${fieldName} must be base64 encoded.`)
   }
 
+  return normalized
+}
+
+const decodeBase64SecretChunk = (chunk: string, fieldName: string): number[] => {
+  const values = [...chunk].map(character => character === '=' ? 0 : base64Alphabet.indexOf(character))
+  // Defensive in case this helper is ever called without normalizeBase64Secret.
+  if (values.some(item => item < 0)) {
+    throw new Error(`${fieldName} must be base64 encoded.`)
+  }
+
+  const packed = ((values[0] ?? 0) << 18) | ((values[1] ?? 0) << 12) | ((values[2] ?? 0) << 6) | (values[3] ?? 0)
+  return [
+    (packed >> 16) & 255,
+    ...(chunk[2] !== '=' ? [(packed >> 8) & 255] : []),
+    ...(chunk[3] !== '=' ? [packed & 255] : [])
+  ]
+}
+
+const base64ToBytes = (value: string, fieldName: string): Uint8Array<ArrayBuffer> => {
+  const normalized = normalizeBase64Secret(value, fieldName)
   const bytes: number[] = []
   for (let index = 0; index < normalized.length; index += 4) {
-    const chunk = normalized.slice(index, index + 4)
-    const values = [...chunk].map(character => character === '=' ? 0 : base64Alphabet.indexOf(character))
-    if (values.some(item => item < 0)) {
-      throw new Error('Extension secret root key must be base64 encoded.')
-    }
-
-    const packed = ((values[0] ?? 0) << 18) | ((values[1] ?? 0) << 12) | ((values[2] ?? 0) << 6) | (values[3] ?? 0)
-    bytes.push((packed >> 16) & 255)
-    if (chunk[2] !== '=') bytes.push((packed >> 8) & 255)
-    if (chunk[3] !== '=') bytes.push(packed & 255)
+    bytes.push(...decodeBase64SecretChunk(normalized.slice(index, index + 4), fieldName))
   }
 
   const output = new Uint8Array(new ArrayBuffer(bytes.length))
@@ -314,7 +325,7 @@ const toArrayBuffer = (bytes: Uint8Array): ArrayBuffer =>
   bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
 
 const importExtensionSecretRootKey = async (rootKey: string): Promise<CryptoKey> => {
-  const keyBytes = base64ToBytes(rootKey)
+  const keyBytes = base64ToBytes(rootKey, 'Extension secret root key')
   if (keyBytes.byteLength !== 32) {
     throw new Error('Extension secret root key must decode to 32 bytes.')
   }
@@ -371,15 +382,15 @@ const decryptExtensionSecretValue = async (
   }
 ): Promise<JsonValue> => {
   const key = await importExtensionSecretRootKey(options.rootKey)
-  const ciphertext = base64ToBytes(options.ciphertext)
-  const authTag = base64ToBytes(options.authTag)
+  const ciphertext = base64ToBytes(options.ciphertext, 'Extension secret ciphertext')
+  const authTag = base64ToBytes(options.authTag, 'Extension secret authentication tag')
   const encrypted = new Uint8Array(new ArrayBuffer(ciphertext.length + authTag.length))
   encrypted.set(ciphertext)
   encrypted.set(authTag, ciphertext.length)
   const decrypted = await crypto.subtle.decrypt(
     {
       name: 'AES-GCM',
-      iv: toArrayBuffer(base64ToBytes(options.iv)),
+      iv: toArrayBuffer(base64ToBytes(options.iv, 'Extension secret initialization vector')),
       additionalData: toArrayBuffer(extensionSecretAdditionalData(options)),
       tagLength: EXTENSION_SECRET_TAG_BYTES * 8
     },
