@@ -337,7 +337,7 @@ export const registerGcsExtensionCreateOperationHandler = (
 }
 
 export interface ExtensionAgreementLookupDatabase {
-  Funding_Case_Agreement: {
+  Funding_Case_Agreement_Profile: {
     id: unknown
     egcs_fc_fundingagreement: string | null
     egcs_fc_transferpaymentstream: unknown
@@ -357,7 +357,7 @@ export const resolveExtensionAgreementByNumber = async (
   streamId?: string
 ): Promise<ExtensionAgreementLookupResult | null> => {
   let query = db
-    .selectFrom('Funding_Case_Agreement')
+    .selectFrom('Funding_Case_Agreement_Profile')
     .select([
       'id',
       'egcs_fc_fundingagreement',
