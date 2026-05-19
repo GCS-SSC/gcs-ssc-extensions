@@ -9,10 +9,15 @@
     "url": "https://github.com/GCS-SSC/gcs-ssc-extensions.git"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "bun run build",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:coverage": "vitest run --coverage --config vitest.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "files": [
     "README.md",
+    "dist",
     "src"
   ],
   "publishConfig": {
@@ -20,29 +25,39 @@
   },
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./server": {
-      "types": "./src/server.ts",
-      "import": "./src/server.ts"
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./ui": {
+      "types": "./dist/ui.d.ts",
+      "import": "./dist/ui.js"
     },
     "./testing": {
-      "types": "./src/testing.ts",
-      "import": "./src/testing.ts"
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
     },
     "./nuxt": {
-      "types": "./src/nuxt.ts",
-      "import": "./src/nuxt.ts"
+      "types": "./dist/nuxt.d.ts",
+      "import": "./dist/nuxt.js"
     }
   },
   "peerDependencies": {
+    "h3": "^1.15.5",
     "kysely": "^0.28.11",
+    "vue": "^3.5.28",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/node": "^25.3.0",
     "kysely": "^0.28.11",
+    "h3": "^1.15.5",
     "typescript": "^5.9.3",
+    "vitest": "^4.0.18",
+    "vue": "^3.5.28",
     "zod": "^4.3.6"
   }
 }

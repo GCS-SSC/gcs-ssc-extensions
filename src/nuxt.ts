@@ -7,6 +7,7 @@ export interface GcsRef<T> {
 export interface GcsI18nComposer {
   locale: GcsRef<string>
   t: (key: string, params?: Record<string, unknown>) => string
+  n: (value: number, options?: Record<string, unknown>) => string
 }
 
 export type GcsFetchStatus = 'idle' | 'pending' | 'success' | 'error'
@@ -33,6 +34,16 @@ export interface GcsFetchResult<T> {
   status: GcsRef<GcsFetchStatus>
   error: GcsRef<unknown | null>
   refresh: () => Promise<void>
+}
+
+export interface GcsGroupedTableExpansionOptions<Row> {
+  rows: Row[] | GcsRef<Row[]> | (() => Row[])
+  groups: Array<{
+    id: string
+    getValue: (row: Row) => string
+  }>
+  isPlaceholder?: (row: Row) => boolean
+  defaultExpanded?: boolean
 }
 
 export interface GcsExtensionEvent {
@@ -64,47 +75,29 @@ export interface GcsNitroApp {
 declare global {
   type EventHandler<T = unknown> = (event: GcsExtensionEvent) => T | Promise<T>
 
-  const useI18n: () => GcsI18nComposer
-
-  const useFetch: <T = unknown>(
-    url: string | (() => string),
-    options?: Record<string, unknown>
-  ) => GcsFetchResult<T>
-
-  const defineNitroPlugin: (plugin: (nitroApp: GcsNitroApp) => unknown) => unknown
-
-  const useNitroApp: () => GcsNitroApp
-
-  const useCan: () => {
-    can: (
-      subject: GcsExtensionRbacSubject,
-      action: GcsExtensionRbacAction,
-      scope?: GcsExtensionScope
-    ) => boolean
-    canGrant: (
-      subject: GcsExtensionRbacSubject,
-      action: GcsExtensionRbacAction,
-      scope?: GcsExtensionScope
-    ) => boolean
-    canAny: (checks: Array<{
-      subject: GcsExtensionRbacSubject
-      action: GcsExtensionRbacAction
-      scope?: GcsExtensionScope
-    }>) => boolean
-  }
-
   const CommonSaveButton: Component
+  const CommonEntityEditorWorkspace: Component
+  const CommonResourceLayoutCard: Component
+  const CommonRouteTabs: Component
+  const CommonSection: Component
+  const CommonStatusBadge: Component
+  const UAccordion: Component
+  const UAlert: Component
   const UBadge: Component
   const UButton: Component
   const UCheckbox: Component
   const UFormField: Component
   const UIcon: Component
   const UInput: Component
+  const UInputTags: Component
   const UModal: Component
+  const UProgress: Component
   const USelect: Component
   const USelectMenu: Component
+  const USwitch: Component
   const UTable: Component
   const UTextarea: Component
+  const UTooltip: Component
 }
 
 export {}

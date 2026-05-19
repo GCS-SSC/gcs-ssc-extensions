@@ -6,25 +6,26 @@ Extensions should import host-facing types and helpers from this package instead
 
 ## Installation
 
-Use the GitHub dependency from standalone extension packages:
+Use the published or tagged SDK dependency from standalone extension packages:
 
 ```json
 {
   "dependencies": {
-    "@gcs-ssc/extensions": "github:GCS-SSC/gcs-ssc-extensions#main"
+    "@gcs-ssc/extensions": "^0.1.0"
   }
 }
 ```
 
-The host application may also consume this package through a local workspace while SDK contracts are being developed. Extension repositories should use the GitHub dependency so editor IntelliSense, typechecking, and tests do not require the full host application checkout.
+The host application may consume this package through a local workspace while SDK contracts are being developed. Extension repositories should use a normal versioned SDK dependency so editor IntelliSense, typechecking, and tests do not require the full host application checkout.
 
 ## Entry Points
 
 - `@gcs-ssc/extensions` exposes manifest, JSON, and client-safe extension types.
 - `@gcs-ssc/extensions/server` exposes server-safe schemas and route helpers.
+- `@gcs-ssc/extensions/ui` exposes host-provided UI wrappers, component prop contracts, extension composables, and the extension API client.
 - `@gcs-ssc/extensions/testing` exposes test-only helpers for extension repositories.
 - `@gcs-ssc/extensions/nuxt` exposes minimal ambient Nuxt host globals for standalone extension typechecking.
-- The Nuxt entry point also declares host-provided UI components used by extension screens, including `UBadge`, `UTable`, `UIcon`, and `CommonSaveButton`.
+- The Nuxt entry point declares host-provided globals for typechecking only. Extension UI should import wrappers from `@gcs-ssc/extensions/ui` instead of using host component names directly.
 
 ## Import Rules
 
@@ -36,12 +37,52 @@ import type { GcsExtensionJsonConfig } from '@gcs-ssc/extensions'
 import {
   AssessmentDefinitionSchema,
   createGcsExtensionUserError,
+  defineGcsExtensionNitroPlugin,
   getExtensionKvEntry,
   defineGcsExtensionMigration,
   registerGcsExtensionCreateOperationHandler,
   setExtensionKvEntry,
   resolveExtensionStreamContext
 } from '@gcs-ssc/extensions/server'
+import {
+  ExtensionButton,
+  ExtensionSaveButton,
+  useExtensionApi,
+  useExtensionI18n
+} from '@gcs-ssc/extensions/ui'
+```
+
+## UI Boundary
+
+Extension components must not import from host aliases such as `~/`, `~~/`, `#imports`, `#app`, or `#gcs-*`.
+They should also avoid direct template usage of host component names such as `CommonSaveButton`, `CommonSection`, `UButton`, or `UTable`.
+Use the SDK UI wrappers instead:
+
+```vue
+<script setup lang="ts">
+import { ExtensionButton, ExtensionFormField, useExtensionI18n } from '@gcs-ssc/extensions/ui'
+
+const { t } = useExtensionI18n()
+</script>
+
+<template>
+  <ExtensionFormField :label="t('example.label')">
+    <ExtensionButton icon="i-lucide-save" />
+  </ExtensionFormField>
+</template>
+```
+
+The wrappers preserve the host look and behavior while keeping extensions coupled to a stable SDK contract instead of app-internal component names.
+
+The host installs the concrete UI runtime with `setExtensionUiRuntime`. Extension tests can install lightweight stubs with `installExtensionTestUiRuntime` from `@gcs-ssc/extensions/testing`.
+
+Use `useExtensionApi(extensionKey)` for extension-owned routes and `useHostApi()` for stable host API routes. Extensions that call `useHostApi()` must declare `host-api-client` in `requiredHostCapabilities`. Do not call `fetch` or build `/api/...` URLs directly in extension components.
+
+```ts
+import { useHostApi } from '@gcs-ssc/extensions/ui'
+
+const hostApi = useHostApi()
+const response = await hostApi.get<{ items: unknown[] }>('/api/transfer-payments/1/outcomes')
 ```
 
 ## Entity Tabs And RBAC
@@ -53,7 +94,7 @@ The host passes the editable JSON config with `v-model` plus stable stream conte
 
 ```vue
 <script setup lang="ts">
-import type { GcsExtensionJsonConfig, GcsResolvedExtension } from '@gcs-ssc/extensions'
+import type { GcsClientExtensionManifest, GcsExtensionJsonConfig } from '@gcs-ssc/extensions'
 
 const {
   extension,
@@ -61,7 +102,7 @@ const {
   transferPaymentId,
   agencyId
 } = defineProps<{
-  extension: GcsResolvedExtension
+  extension: GcsClientExtensionManifest
   streamId: string
   transferPaymentId?: string
   agencyId?: string
@@ -78,6 +119,8 @@ Extensions can add tabs to funding case agreements, proponents, claims, and moni
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
+  sdkVersion: '^0.1.0',
+  requiredHostCapabilities: ['server-handlers', 'server-handler-rbac'],
   name: { en: 'Example', fr: 'Exemple' },
   client: {
     tabs: [
@@ -103,6 +146,8 @@ Extensions can add inline fields to host-owned agreement profile sections throug
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
+  sdkVersion: '^0.1.0',
+  requiredHostCapabilities: ['textarea-slots', 'extension-ui'],
   name: { en: 'Example', fr: 'Exemple' },
   client: {
     slots: [
@@ -119,8 +164,7 @@ Tab components receive the entity context and extension configuration as props:
 
 ```vue
 <script setup lang="ts">
-import type { ExtensionEntityTabContext } from '@gcs-ssc/extensions/server'
-import type { GcsExtensionJsonConfig, GcsExtensionRbacRequirement } from '@gcs-ssc/extensions'
+import type { ExtensionEntityTabContext, GcsExtensionJsonConfig, GcsExtensionRbacRequirement } from '@gcs-ssc/extensions'
 
 const {
   extensionKey,
@@ -141,6 +185,8 @@ Extensions can also opt server routes into host RBAC:
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
+  sdkVersion: '^0.1.0',
+  requiredHostCapabilities: ['server-handlers', 'server-handler-rbac'],
   name: { en: 'Example', fr: 'Exemple' },
   serverHandlers: [
     {
@@ -160,7 +206,25 @@ export default defineGcsExtension({
 })
 ```
 
-The host resolves the entity from the declared route param, verifies extension enablement, enforces RBAC, and then calls the extension handler. Handlers that do not declare `rbac` keep the existing authenticated dispatch behavior.
+The host resolves the entity from the declared route param, verifies extension enablement, enforces RBAC, and then calls the extension handler. Handlers without host RBAC must explicitly set `auth: 'manual'` and perform their own domain authorization. Manual handlers still run only after user authentication, and agency/stream-scoped handlers are blocked when the extension is disabled for that agency.
+
+Extension route handlers receive a stable SDK context object. Prefer `params`, `db`, `config`, `entity`, `stream`, `agency`, `authorizedScope`, `readBody`, and `getHeader` from that context instead of reading host H3 internals:
+
+```ts
+import { defineGcsExtensionRouteHandler } from '@gcs-ssc/extensions/server'
+
+export default defineGcsExtensionRouteHandler(async ({ db, params, readBody }) => {
+  const agreementId = params.agreementId
+  const body = await readBody<{ note: string }>()
+
+  return {
+    ok: true,
+    agreementId,
+    note: body.note,
+    dbAvailable: Boolean(db)
+  }
+})
+```
 
 Use only the RBAC subjects and actions already exposed by GCS-SSC. The extension SDK does not support custom RBAC subjects.
 
@@ -171,6 +235,8 @@ Extensions can add or replace the create actions on agreement commitments and pa
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
+  sdkVersion: '^0.1.0',
+  requiredHostCapabilities: ['create-actions', 'extension-ui', 'extension-lifecycle-hooks'],
   name: { en: 'Example', fr: 'Exemple' },
   client: {
     createActions: [
@@ -198,11 +264,12 @@ Extensions can intercept host create routes from a Nitro plugin:
 ```ts
 import {
   createGcsExtensionUserError,
+  defineGcsExtensionNitroPlugin,
   getExtensionKvEntry,
   registerGcsExtensionCreateOperationHandler
 } from '@gcs-ssc/extensions/server'
 
-export default defineNitroPlugin(nitroApp => {
+export default defineGcsExtensionNitroPlugin(nitroApp => {
   registerGcsExtensionCreateOperationHandler('gcs-example', 'agreement.payments.create', async context => {
     const source = await getExtensionKvEntry(
       context.trx,
@@ -340,6 +407,8 @@ Extensions may declare explicit Kysely migration files in `extension.config.ts`:
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
+  sdkVersion: '^0.1.0',
+  requiredHostCapabilities: ['migrations'],
   name: { en: 'Example', fr: 'Exemple' },
   migrations: [
     { path: './server/migrations/0001_items.ts' }
@@ -461,7 +530,7 @@ Recommended extension pattern:
 - Decrypt with `getEncryptedExtensionSecret` only inside server routes, background jobs, or materializers that need the credential at runtime.
 - Use `deleteEncryptedExtensionSecret` for user-triggered credential removal so the secret follows the host soft-delete model.
 
-For standalone Vue/Nuxt extension typechecking, include the ambient host declarations in the extension `tsconfig.json`:
+For standalone Vue/Nuxt extension typechecking, include the ambient host declarations in the extension `tsconfig.json` only when the extension uses Nuxt globals directly:
 
 ```json
 {
@@ -478,7 +547,12 @@ Run the SDK typecheck before publishing changes:
 ```sh
 bun install
 bun run typecheck
+bun run test:unit
+bun run test:coverage
+bun run build
 ```
+
+The package includes a `prepare` script, so GitHub-based installs build `dist` automatically when the package is installed from source.
 
 ## Adding Host Capabilities
 

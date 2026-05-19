@@ -1,5 +1,7 @@
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
+export const GCS_EXTENSION_SDK_VERSION = '0.1.0'
+
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
 /**
@@ -18,13 +20,21 @@ export class FetchResponseError extends Error {
    * @param data - Parsed response payload.
    */
   constructor(response: Response, data: unknown) {
-    const nestedMessage = data && typeof data === 'object' && 'data' in data
-      ? (data as { data?: { message?: unknown } }).data?.message
+    const nestedData = data && typeof data === 'object' && 'data' in data
+      ? (data as { data?: { details?: unknown; message?: unknown } }).data
       : undefined
+    const nestedDetails = Array.isArray(nestedData?.details) ? nestedData.details : []
+    const flatDetails = data && typeof data === 'object' && 'details' in data && Array.isArray((data as { details?: unknown }).details)
+      ? (data as { details: unknown[] }).details
+      : []
+    const firstDetailMessage = [...nestedDetails, ...flatDetails]
+      .map(detail => detail && typeof detail === 'object' && 'message' in detail ? (detail as { message?: unknown }).message : undefined)
+      .find(message => typeof message === 'string' && message.length > 0)
+    const nestedMessage = nestedData?.message
     const flatMessage = data && typeof data === 'object' && 'message' in data
       ? (data as { message?: unknown }).message
       : undefined
-    const rawMessage = nestedMessage ?? flatMessage
+    const rawMessage = firstDetailMessage ?? nestedMessage ?? flatMessage
     const message = rawMessage !== undefined && rawMessage !== null && String(rawMessage).length > 0
       ? String(rawMessage)
       : response.statusText || `HTTP ${response.status}`
@@ -69,9 +79,13 @@ export const getClientRequestUrl = (path: string | URL): URL => {
  * @returns Never returns.
  */
 export const throwFetchResponseError = async (response: Response): Promise<never> => {
+  const responseWithOptionalClone = response as Response & {
+    clone?: () => Response
+  }
+  const responseForJson = responseWithOptionalClone.clone?.() ?? response
   let payload: unknown
   try {
-    payload = await response.clone().json() as unknown
+    payload = await responseForJson.json() as unknown
   } catch {
     payload = undefined
   }
@@ -80,7 +94,8 @@ export const throwFetchResponseError = async (response: Response): Promise<never
     throw new FetchResponseError(response, payload)
   }
 
-  const textBody = await response.clone().text().catch(() => '')
+  const responseForText = responseWithOptionalClone.clone?.() ?? response
+  const textBody = await responseForText.text().catch(() => '')
   const trimmedTextBody = textBody.trim()
   const truncatedTextBody = trimmedTextBody.length > FETCH_ERROR_TEXT_LIMIT
     ? `${trimmedTextBody.slice(0, FETCH_ERROR_TEXT_LIMIT)}...`
@@ -127,6 +142,36 @@ export interface GcsExtensionRbacRequirement {
 
 export type GcsExtensionEntityTabTarget = 'agreement' | 'proponent' | 'claim' | 'monitor'
 
+export type GcsExtensionEntityType =
+  | 'fundingopportunity'
+  | 'transferpaymentstream'
+  | 'fundingcaseintake'
+  | 'fundingcaseagreement'
+  | 'applicantrecipient'
+  | 'commonreview'
+  | 'commonrecommendation'
+  | 'fundingcaseamendment'
+  | 'fundingcasecommitment'
+  | 'fundingcasemonitor'
+  | 'fundingclaimreconcile'
+  | 'fundingcaseforecast'
+  | 'fundingcasepayment'
+  | 'fundingcaserecommendation'
+
+export interface GcsExtensionEntityDefinition {
+  type: GcsExtensionEntityType
+  label: GcsExtensionBilingualLabel
+}
+
+export interface GcsExtensionEntityFieldDefinition {
+  entityType: GcsExtensionEntityType
+  key: string
+  label: GcsExtensionBilingualLabel
+  required: boolean
+  collection?: string
+  valueType: 'string' | 'number' | 'date' | 'boolean' | 'json'
+}
+
 export type GcsExtensionCreateOperation =
   | 'agreement.commitments.create'
   | 'agreement.payments.create'
@@ -172,6 +217,38 @@ export interface GcsTextareaExtensionContext {
   textarea: GcsTextareaTargetContext
 }
 
+export interface GcsAgreementProfileExtensionContext {
+  kind: 'agreement.profile'
+  mode: 'create' | 'read' | 'update'
+  agreementId?: string
+  streamId?: string
+  ownerType: 'fundingcaseagreement'
+  ownerId?: string
+  profile: Record<string, unknown>
+  extensions?: Record<string, Record<string, unknown>>
+  setExtensionPayload?: (extensionKey: string, payloadKey: string, value: unknown) => void
+}
+
+export interface GcsAgreementDescriptionsExtensionContext {
+  kind: 'agreement.descriptions'
+  agreementId?: string
+  streamId?: string
+  descriptions: Record<GcsTextareaTargetLocale, string>
+  extensions?: Record<string, Record<string, unknown>>
+  setExtensionPayload?: (extensionKey: string, payloadKey: string, value: unknown) => void
+}
+
+export interface GcsExtensionUnknownSlotContext {
+  kind?: string
+  [key: string]: unknown
+}
+
+export type GcsExtensionSlotContext =
+  | GcsTextareaExtensionContext
+  | GcsAgreementProfileExtensionContext
+  | GcsAgreementDescriptionsExtensionContext
+  | GcsExtensionUnknownSlotContext
+
 export const GCS_TEXTAREA_TARGETS: GcsTextareaTargetDefinition[] = [
   {
     key: 'agreement.description',
@@ -194,6 +271,100 @@ export const GCS_TEXTAREA_TARGETS: GcsTextareaTargetDefinition[] = [
       en: 'Targets the English and French proponent description fields.',
       fr: 'Cible les champs de description français et anglais du promoteur.'
     }
+  }
+]
+
+export const GCS_EXTENSION_ENTITIES: GcsExtensionEntityDefinition[] = [
+  { type: 'fundingopportunity', label: { en: 'Funding Opportunities', fr: 'Possibilités de financement' } },
+  { type: 'transferpaymentstream', label: { en: 'Streams', fr: 'Volets' } },
+  { type: 'fundingcaseintake', label: { en: 'Intakes', fr: 'Admissions' } },
+  { type: 'fundingcaseagreement', label: { en: 'Agreements', fr: 'Ententes' } },
+  { type: 'applicantrecipient', label: { en: 'Proponents', fr: 'Promoteurs' } },
+  { type: 'commonreview', label: { en: 'Reviews', fr: 'Examens' } },
+  { type: 'commonrecommendation', label: { en: 'Recommendations', fr: 'Recommandations' } },
+  { type: 'fundingcaseamendment', label: { en: 'Amendments', fr: 'Modifications' } },
+  { type: 'fundingcasecommitment', label: { en: 'Commitments', fr: 'Engagements' } },
+  { type: 'fundingcasemonitor', label: { en: 'Monitors', fr: 'Surveillances' } },
+  { type: 'fundingclaimreconcile', label: { en: 'Claims', fr: 'Réclamations' } },
+  { type: 'fundingcaseforecast', label: { en: 'Forecasts', fr: 'Prévisions' } },
+  { type: 'fundingcasepayment', label: { en: 'Payments', fr: 'Paiements' } },
+  { type: 'fundingcaserecommendation', label: { en: 'Case Recommendations', fr: 'Recommandations de dossier' } }
+]
+
+export const GCS_EXTENSION_CLAIM_FIELDS: GcsExtensionEntityFieldDefinition[] = [
+  {
+    entityType: 'fundingclaimreconcile',
+    key: 'egcs_fc_fundingagreement',
+    label: { en: 'Agreement number', fr: 'Numéro d’entente' },
+    required: true,
+    valueType: 'string'
+  },
+  {
+    entityType: 'fundingclaimreconcile',
+    key: 'egcs_fc_fiscalyear',
+    label: { en: 'Fiscal year', fr: 'Exercice financier' },
+    required: true,
+    valueType: 'string'
+  },
+  {
+    entityType: 'fundingclaimreconcile',
+    key: 'egcs_fc_periodstart',
+    label: { en: 'Claim period start month', fr: 'Mois de début de la période de réclamation' },
+    required: true,
+    valueType: 'number'
+  },
+  {
+    entityType: 'fundingclaimreconcile',
+    key: 'egcs_fc_periodend',
+    label: { en: 'Claim period end month', fr: 'Mois de fin de la période de réclamation' },
+    required: true,
+    valueType: 'number'
+  },
+  {
+    entityType: 'fundingclaimreconcile',
+    key: 'egcs_fc_receiveddate',
+    label: { en: 'Received date', fr: 'Date de réception' },
+    required: true,
+    valueType: 'date'
+  },
+  {
+    entityType: 'fundingclaimreconcile',
+    key: 'egcs_fc_isfinalforyear',
+    label: { en: 'Final for year', fr: 'Finale pour l’exercice' },
+    required: false,
+    valueType: 'boolean'
+  },
+  {
+    entityType: 'fundingclaimreconcile',
+    key: 'egcs_fc_submittedcostcategory',
+    label: { en: 'Cost category', fr: 'Catégorie de coût' },
+    required: true,
+    collection: 'submitted_line_items',
+    valueType: 'string'
+  },
+  {
+    entityType: 'fundingclaimreconcile',
+    key: 'egcs_fc_submittedcostsubsection',
+    label: { en: 'Subsection', fr: 'Sous-section' },
+    required: true,
+    collection: 'submitted_line_items',
+    valueType: 'string'
+  },
+  {
+    entityType: 'fundingclaimreconcile',
+    key: 'egcs_fc_submittedlineitem',
+    label: { en: 'Line item', fr: 'Poste' },
+    required: true,
+    collection: 'submitted_line_items',
+    valueType: 'string'
+  },
+  {
+    entityType: 'fundingclaimreconcile',
+    key: 'egcs_fc_amount',
+    label: { en: 'Submitted amount', fr: 'Montant soumis' },
+    required: true,
+    collection: 'submitted_line_items',
+    valueType: 'number'
   }
 ]
 
@@ -247,12 +418,30 @@ export interface GcsExtensionServerHandlerDefinition {
   route: string
   method?: 'get' | 'post' | 'put' | 'patch' | 'delete'
   path: string
-  rbac?: GcsExtensionRbacRequirement & {
-    entity: {
-      target: GcsExtensionEntityTabTarget
-      param: string
+  /**
+   * Use `manual` only when the handler performs domain authorization itself.
+   * Prefer `rbac`, which lets the host resolve entity config and enforce access
+   * before extension code runs.
+   */
+  auth?: 'manual'
+  rbac?: GcsExtensionRbacRequirement & (
+    | {
+      entity: {
+        target: GcsExtensionEntityTabTarget
+        param: string
+      }
     }
-  }
+    | {
+      stream: {
+        param: string
+      }
+    }
+    | {
+      agency: {
+        param: string
+      }
+    }
+  )
 }
 
 export interface GcsExtensionRuntimeResolverDefinition {
@@ -263,6 +452,27 @@ export interface GcsExtensionMigrationDefinition {
   path: string
 }
 
+export type GcsExtensionHostCapability =
+  | 'agency-config'
+  | 'stream-config-modal'
+  | 'stream-config-page'
+  | 'entity-tabs'
+  | 'textarea-slots'
+  | 'create-actions'
+  | 'payment-amount-calculators'
+  | 'server-handlers'
+  | 'server-handler-rbac'
+  | 'migrations'
+  | 'runtime-resolution'
+  | 'public-assets'
+  | 'extension-ui'
+  | 'extension-api-client'
+  | 'host-api-client'
+  | 'extension-kv'
+  | 'extension-secrets'
+  | 'extension-create-operation-hooks'
+  | 'extension-lifecycle-hooks'
+
 export interface GcsExtensionAdminDefinition {
   agency?: GcsExtensionComponentDefinition
   streamConfig?: GcsExtensionComponentDefinition
@@ -271,6 +481,8 @@ export interface GcsExtensionAdminDefinition {
 
 export interface GcsExtensionDefinition {
   key: string
+  sdkVersion: string
+  requiredHostCapabilities: GcsExtensionHostCapability[]
   name: {
     en: string
     fr: string
@@ -298,6 +510,8 @@ export interface GcsExtensionDefinition {
 export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admin' | 'client' | 'css' | 'i18n' | 'assets' | 'serverHandlers' | 'migrations' | 'runtime' | 'nitroPlugin'> {
   packageName: string
   rootDir: string
+  sdkVersion: string
+  requiredHostCapabilities: GcsExtensionHostCapability[]
   admin: GcsExtensionAdminDefinition
   client: {
     slots: GcsExtensionSlotDefinition[]
@@ -321,6 +535,7 @@ export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admi
     route: string
     method?: 'get' | 'post' | 'put' | 'patch' | 'delete'
     path: string
+    auth?: 'manual'
     rbac?: GcsExtensionServerHandlerDefinition['rbac']
   }>
   migrations: Array<{
@@ -331,7 +546,86 @@ export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admi
   nitroPlugin?: string
 }
 
+export type GcsClientExtensionComponentDefinition = Omit<GcsExtensionComponentDefinition, 'path'> & {
+  componentName?: string
+}
+
+export type GcsClientExtensionSlotDefinition = Omit<GcsExtensionSlotDefinition, 'path'> & {
+  componentName?: string
+}
+
+export type GcsClientExtensionEntityTabDefinition = Omit<GcsExtensionEntityTabDefinition, 'path'> & {
+  value?: string
+  componentName?: string
+}
+
+export type GcsClientExtensionCreateActionDefinition = Omit<GcsExtensionCreateActionDefinition, 'path'> & {
+  value?: string
+  componentName?: string
+}
+
+export type GcsClientExtensionPaymentAmountCalculatorDefinition = Omit<GcsExtensionPaymentAmountCalculatorDefinition, 'path'> & {
+  value?: string
+  componentName?: string
+}
+
+export interface GcsClientExtensionManifest {
+  key: string
+  name: {
+    en: string
+    fr: string
+  }
+  description?: {
+    en: string
+    fr: string
+  }
+  sdkVersion: string
+  admin: {
+    agency?: GcsClientExtensionComponentDefinition
+    streamConfig?: GcsClientExtensionComponentDefinition
+    streamConfigPage?: GcsClientExtensionComponentDefinition
+  }
+  client: {
+    slots: GcsClientExtensionSlotDefinition[]
+    tabs: GcsClientExtensionEntityTabDefinition[]
+    createActions: GcsClientExtensionCreateActionDefinition[]
+    paymentAmountCalculators: GcsClientExtensionPaymentAmountCalculatorDefinition[]
+  }
+}
+
 export type GcsExtensionJsonConfig = Record<string, JsonValue>
+
+export type ExtensionScope =
+  | { type: 'global' }
+  | { type: 'agency'; agencyId: string }
+  | {
+    type: 'entity'
+    agencyId: string
+    path: Array<{
+      type: string
+      id: string
+    }>
+  }
+
+export type ExtensionEntityOwnerType =
+  | 'fundingcaseagreement'
+  | 'applicantrecipient'
+  | 'fundingcaseagreementclaim'
+  | 'fundingcaseagreementmonitor'
+
+export interface ExtensionEntityTabContext {
+  target: GcsExtensionEntityTabTarget
+  agencyId: string
+  streamId?: string
+  agreementId?: string
+  applicantRecipientId?: string
+  claimId?: string
+  monitorId?: string
+  ownerType: ExtensionEntityOwnerType
+  ownerId: string
+  scope: ExtensionScope
+  rbac: GcsExtensionRbacRequirement
+}
 
 export interface GcsExtensionRuntimeContext {
   slot: GcsExtensionSlot
@@ -339,6 +633,17 @@ export interface GcsExtensionRuntimeContext {
   agencyId?: string
   applicantRecipientId?: string
 }
+
+export interface GcsExtensionRuntimeHostContext {
+  event: unknown
+  db: unknown
+  auth?: unknown
+}
+
+export type GcsExtensionRuntimeResolver = (
+  host: GcsExtensionRuntimeHostContext,
+  context: GcsExtensionRuntimeContext
+) => Promise<GcsExtensionRuntimeResolution | null | undefined> | GcsExtensionRuntimeResolution | null | undefined
 
 export interface GcsExtensionRuntimeResolution {
   enabled: boolean

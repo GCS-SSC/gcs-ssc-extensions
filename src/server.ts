@@ -1,6 +1,15 @@
 import { z } from 'zod'
+import { getHeader, readBody } from 'h3'
 import type { Kysely, Migration } from 'kysely'
-import type { GcsExtensionCreateOperation, GcsExtensionEntityTabTarget, GcsExtensionJsonConfig, GcsExtensionRbacRequirement, JsonValue } from './index'
+import type {
+  ExtensionEntityTabContext,
+  ExtensionScope,
+  GcsExtensionCreateOperation,
+  GcsExtensionJsonConfig,
+  JsonValue
+} from './index'
+
+export type { ExtensionEntityOwnerType, ExtensionEntityTabContext, ExtensionScope } from './index'
 
 export type GcsExtensionMigration = Migration
 
@@ -8,43 +17,11 @@ export const defineGcsExtensionMigration = <T extends GcsExtensionMigration>(mig
 
 export const GCS_EXTENSION_CREATE_OPERATION_HOOK = 'gcs:extension:create-operation'
 
-export type ExtensionScope =
-  | { type: 'global' }
-  | { type: 'agency'; agencyId: string }
-  | {
-    type: 'entity'
-    agencyId: string
-    path: Array<{
-      type: string
-      id: string
-    }>
-  }
-
 export interface ExtensionStreamContext {
   agencyId: string
   profileId: string
   streamId: string
   scope: ExtensionScope
-}
-
-export type ExtensionEntityOwnerType =
-  | 'fundingcaseagreement'
-  | 'applicantrecipient'
-  | 'fundingcaseagreementclaim'
-  | 'fundingcaseagreementmonitor'
-
-export interface ExtensionEntityTabContext {
-  target: GcsExtensionEntityTabTarget
-  agencyId: string
-  streamId?: string
-  agreementId?: string
-  applicantRecipientId?: string
-  claimId?: string
-  monitorId?: string
-  ownerType: ExtensionEntityOwnerType
-  ownerId: string
-  scope: ExtensionScope
-  rbac: GcsExtensionRbacRequirement
 }
 
 export interface GcsExtensionCreateOperationContext {
@@ -90,11 +67,153 @@ export interface GcsExtensionCreateOperationHookPayload {
 
 type NitroHookRegistrar = {
   hooks: {
-    hook: (
-      name: typeof GCS_EXTENSION_CREATE_OPERATION_HOOK,
-      handler: (payload: GcsExtensionCreateOperationHookPayload) => Promise<void> | void
-    ) => void
+    hook: {
+      (
+        name: typeof GCS_EXTENSION_CREATE_OPERATION_HOOK,
+        handler: (payload: GcsExtensionCreateOperationHookPayload) => Promise<void> | void
+      ): void
+      (
+      name: string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        handler: (payload: any) => Promise<void> | void
+      ): void
+    }
   }
+}
+
+export interface GcsExtensionRouteEvent {
+  node?: {
+    res?: {
+      statusCode?: number
+      statusMessage?: string
+    }
+  }
+  context: {
+    $authContext?: GcsExtensionAuthContext
+    $db: unknown
+    gcsExtension?: {
+      extensionKey?: string
+      config: GcsExtensionJsonConfig | unknown
+      entity?: Record<string, unknown>
+      stream?: Record<string, unknown>
+      agency?: Record<string, unknown>
+    }
+    params?: Record<string, string | undefined>
+  }
+}
+
+export interface GcsExtensionRouteContext {
+  event: GcsExtensionRouteEvent
+  db: unknown
+  params: Record<string, string | undefined>
+  auth?: GcsExtensionAuthContext
+  extensionKey?: string
+  config: GcsExtensionJsonConfig | unknown
+  entity?: Record<string, unknown>
+  stream?: Record<string, unknown>
+  agency?: Record<string, unknown>
+  authorizedScope?: ExtensionScope
+  readBody: <T = unknown>() => Promise<T>
+  getHeader: (name: string) => string | undefined
+}
+
+export interface GcsExtensionAuthContext {
+  userId: string
+  userAbilities: {
+    authorize: (subject: string, action: string, scope: ExtensionScope) => boolean
+    authorizeWithTeam: (
+      subject: string,
+      action: string,
+      scope: ExtensionScope,
+      userId: string,
+      includeInherited: boolean,
+      db: unknown
+    ) => boolean | Promise<boolean>
+    isRootAdmin?: () => boolean
+  }
+}
+
+export type GcsExtensionRawRouteHandler<T = unknown> = (
+  event: GcsExtensionRouteEvent
+) => T | Promise<T>
+
+export type GcsExtensionRouteHandler<T = unknown> = (
+  context: GcsExtensionRouteContext
+) => T | Promise<T>
+
+export const createGcsExtensionRouteContext = (event: GcsExtensionRouteEvent): GcsExtensionRouteContext => {
+  const context: GcsExtensionRouteContext = {
+    event,
+    db: event.context.$db,
+    params: event.context.params ?? {},
+    config: event.context.gcsExtension?.config ?? {},
+    readBody: async <T = unknown>() => await readGcsExtensionRequestBody<T>(event),
+    getHeader: (name: string) => getGcsExtensionRequestHeader(event, name)
+  }
+  if (event.context.$authContext) {
+    context.auth = event.context.$authContext
+  }
+  if (event.context.gcsExtension?.extensionKey) {
+    context.extensionKey = event.context.gcsExtension.extensionKey
+  }
+  if (event.context.gcsExtension?.entity) {
+    context.entity = event.context.gcsExtension.entity
+    if (isExtensionScope(event.context.gcsExtension.entity.scope)) {
+      context.authorizedScope = event.context.gcsExtension.entity.scope
+    }
+  }
+  if (event.context.gcsExtension?.stream) {
+    context.stream = event.context.gcsExtension.stream
+    if (isExtensionScope(event.context.gcsExtension.stream.scope)) {
+      context.authorizedScope = event.context.gcsExtension.stream.scope
+    }
+  }
+  if (event.context.gcsExtension?.agency) {
+    context.agency = event.context.gcsExtension.agency
+    if (isExtensionScope(event.context.gcsExtension.agency.scope)) {
+      context.authorizedScope = event.context.gcsExtension.agency.scope
+    }
+  }
+
+  return context
+}
+
+const isExtensionScope = (value: unknown): value is ExtensionScope =>
+  value !== null
+  && typeof value === 'object'
+  && 'type' in value
+
+export const defineGcsExtensionRouteHandler = <T>(
+  handler: GcsExtensionRouteHandler<T>
+): GcsExtensionRawRouteHandler<T> =>
+  async (event: GcsExtensionRouteEvent) => await handler(createGcsExtensionRouteContext(event))
+
+export const readGcsExtensionRequestBody = async <T = unknown>(
+  eventOrContext: GcsExtensionRouteEvent | GcsExtensionRouteContext
+): Promise<T> => await readBody(('event' in eventOrContext ? eventOrContext.event : eventOrContext) as never) as T
+
+export const getGcsExtensionRequestHeader = (
+  eventOrContext: GcsExtensionRouteEvent | GcsExtensionRouteContext,
+  name: string
+): string | undefined => getHeader(('event' in eventOrContext ? eventOrContext.event : eventOrContext) as never, name)
+
+export const getGcsExtensionHookDatabase = (payload: {
+  db?: unknown
+  event?: {
+    context?: {
+      $db?: unknown
+    }
+  }
+}): unknown => payload.db ?? payload.event?.context?.$db
+
+export const defineGcsExtensionNitroPlugin = <T extends (nitroApp: NitroHookRegistrar) => Promise<void> | void>(
+  plugin: T
+): T => {
+  const globalDefine = (globalThis as typeof globalThis & {
+    defineNitroPlugin?: (plugin: T) => T
+  }).defineNitroPlugin
+
+  return globalDefine ? globalDefine(plugin) : plugin
 }
 
 export type GcsExtensionLocalizedMessage =
@@ -215,6 +334,59 @@ export const registerGcsExtensionCreateOperationHandler = (
       })
     }
   })
+}
+
+export interface ExtensionAgreementLookupDatabase {
+  Funding_Case_Agreement: {
+    id: unknown
+    egcs_fc_fundingagreement: string | null
+    egcs_fc_transferpaymentstream: unknown
+    _deleted: boolean
+  }
+}
+
+export interface ExtensionAgreementLookupResult {
+  id: string
+  agreementNumber: string
+  streamId: string
+}
+
+export const resolveExtensionAgreementByNumber = async (
+  db: Kysely<ExtensionAgreementLookupDatabase>,
+  agreementNumber: string,
+  streamId?: string
+): Promise<ExtensionAgreementLookupResult | null> => {
+  let query = db
+    .selectFrom('Funding_Case_Agreement')
+    .select([
+      'id',
+      'egcs_fc_fundingagreement',
+      'egcs_fc_transferpaymentstream'
+    ])
+    .where('egcs_fc_fundingagreement', '=', agreementNumber)
+    .where('_deleted', '=', false)
+
+  if (streamId !== undefined) {
+    query = query.where('egcs_fc_transferpaymentstream', '=', streamId)
+  }
+
+  const agreement = await query.executeTakeFirst()
+  if (!agreement || !agreement.egcs_fc_fundingagreement) {
+    return null
+  }
+
+  return {
+    id: String(agreement.id),
+    agreementNumber: agreement.egcs_fc_fundingagreement,
+    streamId: String(agreement.egcs_fc_transferpaymentstream)
+  }
+}
+
+export interface ExtensionExternalSubmissionIdentity {
+  extensionKey: string
+  ownerType: string
+  ownerId: string
+  submissionUuid: string
 }
 
 type ExtensionKvDatabase = {

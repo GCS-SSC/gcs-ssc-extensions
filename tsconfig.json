@@ -12,11 +12,13 @@
     "moduleResolution": "Bundler",
     "noEmit": true,
     "noUncheckedIndexedAccess": true,
+    "baseUrl": ".",
     "strict": true,
     "target": "ES2022",
-    "types": []
+    "types": ["node"]
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "src/**/*.d.ts"
   ]
 }
