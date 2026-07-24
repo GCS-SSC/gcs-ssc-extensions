@@ -248,8 +248,9 @@ export const createExtensionTestUiRuntime = (
           return globalFetch(url, options) as import('./ui').GcsExtensionFetchResult<T>
         }
 
+        const data: Ref<T | null | undefined> = ref(null)
         return {
-          data: ref(null) as Ref<T | null>,
+          data,
           status: ref('idle' as const),
           pending: ref(false),
           error: ref(null),

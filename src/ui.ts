@@ -24,8 +24,20 @@ export type GcsGroupedTableRow<Row> = {
   toggleExpanded?: () => void
 }
 
+export type GcsGroupedTableExpandedState = true | Record<string, boolean>
+
+export interface GcsGroupedTableExpansionOptions<Row> {
+  rows: Row[] | Ref<Row[]> | (() => Row[])
+  groups: Array<{
+    id: string
+    getValue: (row: Row) => string
+  }>
+  isPlaceholder?: (row: Row) => boolean
+  defaultExpanded?: boolean
+}
+
 export interface GcsGroupedTableExpansionResult<Row> {
-  expandedRows: Ref<unknown>
+  expandedRows: Ref<GcsGroupedTableExpandedState>
   grouping: Ref<string[]>
   columnVisibility: Ref<Record<string, boolean>>
   groupingOptions: Record<string, unknown>
@@ -35,7 +47,7 @@ export interface GcsGroupedTableExpansionResult<Row> {
   getLeafRows: (row: GcsGroupedTableRow<Row>) => GcsGroupedTableRow<Row>[]
   getGroupedRowCount: (row: GcsGroupedTableRow<Row>) => number
   canExpandGroupedRow: (row: GcsGroupedTableRow<Row>) => boolean
-  updateExpandedRows: (value: unknown) => void
+  updateExpandedRows: (value: GcsGroupedTableExpandedState) => void
 }
 
 export interface GcsExtensionI18n {
@@ -48,12 +60,20 @@ export interface GcsExtensionToast {
   add: (notification: Record<string, unknown>) => void
 }
 
-export type GcsExtensionConfirmDialog = (options: Record<string, unknown>) => Promise<boolean>
+export interface GcsExtensionConfirmDialogOptions {
+  title: string
+  description?: string
+  confirmLabel?: string
+  cancelLabel?: string
+  confirmColor?: 'primary' | 'error' | 'success' | 'warning' | 'info' | 'neutral'
+}
+
+export type GcsExtensionConfirmDialog = (options: GcsExtensionConfirmDialogOptions) => Promise<boolean>
 
 export interface GcsExtensionFetchResult<T> {
-  data: Ref<T | null>
+  data: Ref<T | null | undefined>
   status: Ref<'idle' | 'pending' | 'success' | 'error'>
-  pending?: Ref<boolean>
+  pending: Ref<boolean>
   error: Ref<unknown>
   refresh: () => Promise<unknown>
 }
@@ -89,15 +109,9 @@ export interface GcsExtensionUiRuntime {
   composables: {
     useConfirmDialog: () => GcsExtensionConfirmDialog
     useFetch: <T = unknown>(url: string | (() => string), options?: Record<string, unknown>) => GcsExtensionFetchResult<T>
-    useGroupedTableExpansion: <Row>(options: {
-      rows: Row[] | Ref<Row[]> | (() => Row[])
-      groups: Array<{
-        id: string
-        getValue: (row: Row) => string
-      }>
-      isPlaceholder?: (row: Row) => boolean
-      defaultExpanded?: boolean
-    }) => unknown
+    useGroupedTableExpansion: <Row>(
+      options: GcsGroupedTableExpansionOptions<Row>
+    ) => GcsGroupedTableExpansionResult<Row>
     useI18n: () => GcsExtensionI18n
     useToast: () => GcsExtensionToast
   }
@@ -421,13 +435,7 @@ export const useExtensionConfirmDialog = () => getExtensionUiRuntime().composabl
 /**
  * Delegates grouped-table expansion state to the host while preserving the shared result contract.
  */
-export const useExtensionGroupedTableExpansion = <Row>(options: {
-  rows: Row[] | Ref<Row[]> | (() => Row[])
-  groups: Array<{
-    id: string
-    getValue: (row: Row) => string
-  }>
-  isPlaceholder?: (row: Row) => boolean
-  defaultExpanded?: boolean
-}): GcsGroupedTableExpansionResult<Row> =>
-  getExtensionUiRuntime().composables.useGroupedTableExpansion<Row>(options) as GcsGroupedTableExpansionResult<Row>
+export const useExtensionGroupedTableExpansion = <Row>(
+  options: GcsGroupedTableExpansionOptions<Row>
+): GcsGroupedTableExpansionResult<Row> =>
+  getExtensionUiRuntime().composables.useGroupedTableExpansion<Row>(options)
