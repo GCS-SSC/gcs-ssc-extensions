@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { defineComponent, h } from 'vue'
 import type { Component, Ref } from 'vue'
 import { throwFetchResponseError } from './index'
@@ -112,14 +111,23 @@ const getGlobalUiRuntimeHolder = (): typeof globalThis & {
   __gcsExtensionUiRuntime?: GcsExtensionUiRuntime
 }
 
+/**
+ * Installs the host UI components and composables in the process-global extension runtime holder.
+ */
 export const setExtensionUiRuntime = (runtime: GcsExtensionUiRuntime): void => {
   getGlobalUiRuntimeHolder()[uiRuntimeKey] = runtime
 }
 
+/**
+ * Removes the installed host UI runtime, primarily to isolate tests and host teardown.
+ */
 export const clearExtensionUiRuntime = (): void => {
   delete getGlobalUiRuntimeHolder()[uiRuntimeKey]
 }
 
+/**
+ * Returns the installed host UI runtime or throws before extension rendering can proceed.
+ */
 export const getExtensionUiRuntime = (): GcsExtensionUiRuntime => {
   const runtime = getGlobalUiRuntimeHolder()[uiRuntimeKey]
   if (!runtime) {
@@ -220,6 +228,9 @@ export interface GcsExtensionRequestOptions extends Omit<RequestInit, 'body'> {
   body?: BodyInit | JsonValue | Record<string, unknown>
 }
 
+/**
+ * Builds an extension-scoped API path and omits nullish query parameters.
+ */
 export const buildExtensionApiPath = (
   extensionKey: string,
   path: string,
@@ -236,6 +247,9 @@ export const buildExtensionApiPath = (
   return `${url.pathname}${url.search}`
 }
 
+/**
+ * Builds a host API path with query parameters and rejects paths outside the `/api/` namespace.
+ */
 export const buildHostApiPath = (
   path: string,
   query: GcsExtensionRequestOptions['query'] = {}
@@ -272,6 +286,9 @@ const parseSuccessfulJsonResponse = async <T>(response: Response): Promise<T> =>
   return JSON.parse(text) as T
 }
 
+/**
+ * Sends a request with automatic JSON encoding, standardized error conversion, and empty-response handling.
+ */
 const requestJson = async <T>(
   fetcher: typeof fetch,
   url: string,
@@ -300,6 +317,9 @@ const requestJson = async <T>(
   return await parseSuccessfulJsonResponse<T>(response)
 }
 
+/**
+ * Creates typed HTTP helpers rooted at one extension key and optional extension subpath.
+ */
 export const createExtensionApiClient = (options: GcsExtensionApiClientOptions) => {
   const fetcher = options.fetch ?? fetch
   const basePath = options.basePath ?? ''
@@ -332,9 +352,15 @@ export const createExtensionApiClient = (options: GcsExtensionApiClientOptions) 
   }
 }
 
+/**
+ * Creates an API client rooted at the requested extension key.
+ */
 export const useExtensionApi = (extensionKey: string) =>
   createExtensionApiClient({ extensionKey })
 
+/**
+ * Creates typed HTTP helpers restricted to the host `/api/` namespace.
+ */
 export const createHostApiClient = (options: { fetch?: typeof fetch } = {}) => {
   const fetcher = options.fetch ?? fetch
   const request = async <T>(path: string, requestOptions: GcsExtensionRequestOptions = {}): Promise<T> => {
@@ -364,19 +390,37 @@ export const createHostApiClient = (options: { fetch?: typeof fetch } = {}) => {
   }
 }
 
+/**
+ * Creates a host API client using the global fetch implementation.
+ */
 export const useHostApi = () => createHostApiClient()
 
+/**
+ * Resolves the host-provided extension i18n composable.
+ */
 export const useExtensionI18n = () => getExtensionUiRuntime().composables.useI18n()
 
+/**
+ * Resolves the host-provided extension toast composable.
+ */
 export const useExtensionToast = () => getExtensionUiRuntime().composables.useToast()
 
+/**
+ * Delegates reactive fetching to the host extension UI runtime.
+ */
 export const useExtensionFetch = <T = unknown>(
   url: string | (() => string),
   options?: Record<string, unknown>
 ) => getExtensionUiRuntime().composables.useFetch<T>(url, options)
 
+/**
+ * Resolves the host-provided confirmation-dialog composable.
+ */
 export const useExtensionConfirmDialog = () => getExtensionUiRuntime().composables.useConfirmDialog()
 
+/**
+ * Delegates grouped-table expansion state to the host while preserving the shared result contract.
+ */
 export const useExtensionGroupedTableExpansion = <Row>(options: {
   rows: Row[] | Ref<Row[]> | (() => Row[])
   groups: Array<{

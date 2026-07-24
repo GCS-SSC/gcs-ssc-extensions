@@ -13,6 +13,9 @@ export type { ExtensionEntityOwnerType, ExtensionEntityTabContext, ExtensionScop
 
 export type GcsExtensionMigration = Migration
 
+/**
+ * Preserves a typed Kysely migration for extension migration discovery.
+ */
 export const defineGcsExtensionMigration = <T extends GcsExtensionMigration>(migration: T): T => migration
 
 export const GCS_EXTENSION_CREATE_OPERATION_HOOK = 'gcs:extension:create-operation'
@@ -74,7 +77,7 @@ type NitroHookRegistrar = {
       ): void
       (
       name: string,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Nitro permits arbitrary hook payload shapes
         handler: (payload: any) => Promise<void> | void
       ): void
     }
@@ -141,6 +144,9 @@ export type GcsExtensionRouteHandler<T = unknown> = (
   context: GcsExtensionRouteContext
 ) => T | Promise<T>
 
+/**
+ * Adapts a host route event and injected extension metadata to the public extension route context.
+ */
 export const createGcsExtensionRouteContext = (event: GcsExtensionRouteEvent): GcsExtensionRouteContext => {
   const context: GcsExtensionRouteContext = {
     event,
@@ -183,20 +189,32 @@ const isExtensionScope = (value: unknown): value is ExtensionScope =>
   && typeof value === 'object'
   && 'type' in value
 
+/**
+ * Wraps a context-based extension handler as a host event handler.
+ */
 export const defineGcsExtensionRouteHandler = <T>(
   handler: GcsExtensionRouteHandler<T>
 ): GcsExtensionRawRouteHandler<T> =>
   async (event: GcsExtensionRouteEvent) => await handler(createGcsExtensionRouteContext(event))
 
+/**
+ * Reads the request body from either a host event or an extension route context.
+ */
 export const readGcsExtensionRequestBody = async <T = unknown>(
   eventOrContext: GcsExtensionRouteEvent | GcsExtensionRouteContext
 ): Promise<T> => await readBody(('event' in eventOrContext ? eventOrContext.event : eventOrContext) as never) as T
 
+/**
+ * Reads a request header from either a host event or an extension route context.
+ */
 export const getGcsExtensionRequestHeader = (
   eventOrContext: GcsExtensionRouteEvent | GcsExtensionRouteContext,
   name: string
 ): string | undefined => getHeader(('event' in eventOrContext ? eventOrContext.event : eventOrContext) as never, name)
 
+/**
+ * Resolves a hook database supplied directly or through its host event context.
+ */
 export const getGcsExtensionHookDatabase = (payload: {
   db?: unknown
   event?: {
@@ -206,6 +224,9 @@ export const getGcsExtensionHookDatabase = (payload: {
   }
 }): unknown => payload.db ?? payload.event?.context?.$db
 
+/**
+ * Registers through the host Nitro global when present, otherwise preserving the plugin for tests and tooling.
+ */
 export const defineGcsExtensionNitroPlugin = <T extends (nitroApp: NitroHookRegistrar) => Promise<void> | void>(
   plugin: T
 ): T => {
@@ -269,6 +290,9 @@ export interface GcsExtensionUserErrorOptions {
 const defaultLocalizedMessage = (message: GcsExtensionLocalizedMessage): string =>
   typeof message === 'string' ? message : message.en
 
+/**
+ * Carries a stable code, HTTP status, localized message, and optional details across the host error boundary.
+ */
 export class GcsExtensionUserError extends Error {
   readonly code: string
   readonly statusCode: number
@@ -285,9 +309,15 @@ export class GcsExtensionUserError extends Error {
   }
 }
 
+/**
+ * Creates a structured extension-owned user error from localized options.
+ */
 export const createGcsExtensionUserError = (options: GcsExtensionUserErrorOptions): GcsExtensionUserError =>
   new GcsExtensionUserError(options)
 
+/**
+ * Recognizes local instances and structurally compatible extension user errors from another module realm.
+ */
 export const isGcsExtensionUserError = (error: unknown): error is GcsExtensionUserError =>
   error instanceof GcsExtensionUserError
   || (
@@ -298,6 +328,9 @@ export const isGcsExtensionUserError = (error: unknown): error is GcsExtensionUs
     && typeof (error as { message?: unknown }).message === 'string'
   )
 
+/**
+ * Registers an enabled-operation hook that appends a handler result for the extension's injected context.
+ */
 export const registerGcsExtensionCreateOperationHandler = (
   extensionKey: string,
   operation: GcsExtensionCreateOperation,
@@ -351,6 +384,9 @@ export interface ExtensionAgreementLookupResult {
   streamId: string
 }
 
+/**
+ * Resolves one non-deleted agreement by number and optional stream, returning normalized string identifiers.
+ */
 export const resolveExtensionAgreementByNumber = async (
   db: Kysely<ExtensionAgreementLookupDatabase>,
   agreementNumber: string,
@@ -520,6 +556,9 @@ const extensionSecretAdditionalData = (options: ExtensionSecretOptions): Uint8Ar
     String(EXTENSION_SECRET_KEY_VERSION)
   ].join('\u001f'))
 
+/**
+ * Encrypts JSON with AES-GCM, binding the ciphertext to its extension owner identity and secret-key name.
+ */
 const encryptExtensionSecretValue = async (
   options: SetExtensionSecretOptions
 ): Promise<{ ciphertext: string; iv: string; authTag: string }> => {
@@ -546,6 +585,9 @@ const encryptExtensionSecretValue = async (
   }
 }
 
+/**
+ * Authenticates and decrypts an AES-GCM secret using the same extension owner identity binding.
+ */
 const decryptExtensionSecretValue = async (
   options: ExtensionSecretOptions & {
     ciphertext: string
@@ -756,6 +798,9 @@ export const AssessmentDefinitionSchema = z.object({
 
 export type AssessmentDefinition = z.infer<typeof AssessmentDefinitionSchema>
 
+/**
+ * Selects editable review-schema content first, falling back to the published snapshots.
+ */
 export const getReviewSchemaEffectiveContent = (schema: ReviewSchemaContentSource): ReviewSchemaContent => ({
   scoringMatrix: schema.egcs_cn_scoringmatrix ?? schema.egcs_cn_publishedscoringmatrix ?? null,
   assessmentSchema: schema.egcs_cn_assessmentschema ?? schema.egcs_cn_publishedassessmentschema ?? null

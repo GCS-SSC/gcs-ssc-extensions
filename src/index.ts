@@ -650,4 +650,7 @@ export interface GcsExtensionRuntimeResolution {
   config?: GcsExtensionJsonConfig
 }
 
+/**
+ * Marks an extension definition for host discovery without transforming its manifest.
+ */
 export const defineGcsExtension = (definition: GcsExtensionDefinition): GcsExtensionDefinition => definition

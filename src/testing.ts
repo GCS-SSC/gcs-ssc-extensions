@@ -54,6 +54,9 @@ const resolveItemValue = (item: unknown): string => {
   return String(item ?? '')
 }
 
+/**
+ * Creates a lightweight interactive stub matching the selected host component's essential test behavior.
+ */
 const createExtensionTestComponent = (name: GcsExtensionHostComponentName): Component => {
   if (name === 'USelect' || name === 'USelectMenu') {
     return defineComponent({
@@ -220,6 +223,9 @@ const hostComponentNames: GcsExtensionHostComponentName[] = [
   'UTooltip'
 ]
 
+/**
+ * Builds a complete test UI runtime from host-component stubs, default composables, and caller overrides.
+ */
 export const createExtensionTestUiRuntime = (
   overrides: Partial<GcsExtensionUiRuntime> = {}
 ): GcsExtensionUiRuntime => {
@@ -285,6 +291,9 @@ export const createExtensionTestUiRuntime = (
   }
 }
 
+/**
+ * Builds and installs a test UI runtime in the process-global extension runtime holder.
+ */
 export const installExtensionTestUiRuntime = (
   overrides: Partial<GcsExtensionUiRuntime> = {}
 ): GcsExtensionUiRuntime => {
