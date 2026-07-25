@@ -8,5 +8,8 @@
     "noEmit": false,
     "outDir": "dist",
     "sourceMap": true
-  }
+  },
+  "exclude": [
+    "type-tests/**/*.ts"
+  ]
 }

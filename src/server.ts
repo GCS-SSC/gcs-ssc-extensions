@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { getHeader, isEvent, readBody, type H3Event } from 'h3'
-import type { Kysely, Migration } from 'kysely'
+import type { Generated, Kysely, Migration, Transaction } from 'kysely'
 import type {
   ExtensionEntityTabContext,
   ExtensionScope,
@@ -448,24 +448,36 @@ type ExtensionKvDatabase = {
   }
 }
 
-type ExtensionSecretDatabase = {
-  'extensions.secret_entry': {
-    id: unknown
-    extension_key: string
-    owner_type: string
-    owner_id: string
-    secret_key: string
-    ciphertext: string
-    iv: string
-    auth_tag: string
-    algorithm: string
-    key_version: number
-    metadata: JsonValue
-    created_at: unknown
-    updated_at: unknown
-    _deleted: boolean
-  }
+/** Database columns used by the host-managed encrypted extension secret store. */
+export interface ExtensionSecretEntryTable {
+  id: Generated<string>
+  extension_key: string
+  owner_type: string
+  owner_id: string
+  secret_key: string
+  ciphertext: string
+  iv: string
+  auth_tag: string
+  algorithm: string
+  key_version: number
+  metadata: Generated<JsonValue>
+  created_at: Generated<Date | string>
+  updated_at: Date | string | null
+  _deleted: Generated<boolean>
 }
+
+/** Minimal database contract required by encrypted extension secret helpers. */
+export interface ExtensionSecretDatabase {
+  'extensions.secret_entry': ExtensionSecretEntryTable
+}
+
+type ExtensionSecretDatabaseClient<Database extends ExtensionSecretDatabase> =
+  Kysely<Database> | Transaction<Database>
+
+/** Narrows Kysely's invariant database generic after the public constraint proves the secret table shape. */
+const asExtensionSecretDatabase = <Database extends ExtensionSecretDatabase>(
+  db: ExtensionSecretDatabaseClient<Database>
+): Kysely<ExtensionSecretDatabase> => db as unknown as Kysely<ExtensionSecretDatabase>
 
 interface ExtensionSecretOptions {
   rootKey: string
@@ -970,12 +982,13 @@ export const deleteExtensionKvEntry = async (
  * @param options Secret owner, key, root encryption key, value, and optional metadata.
  * @returns Inserted or updated row when the host adapter returns it.
  */
-export const setEncryptedExtensionSecret = async (
-  db: Kysely<ExtensionSecretDatabase>,
+export const setEncryptedExtensionSecret = async <Database extends ExtensionSecretDatabase>(
+  db: ExtensionSecretDatabaseClient<Database>,
   options: SetExtensionSecretOptions
 ) => {
+  const secretDb = asExtensionSecretDatabase(db)
   const encrypted = await encryptExtensionSecretValue(options)
-  const existing = await db
+  const existing = await secretDb
     .selectFrom('extensions.secret_entry')
     .select('id')
     .where('extension_key', '=', options.extensionKey)
@@ -996,7 +1009,7 @@ export const setEncryptedExtensionSecret = async (
   }
 
   if (existing) {
-    return await db
+    return await secretDb
       .updateTable('extensions.secret_entry')
       .set(values)
       .where('id', '=', existing.id)
@@ -1004,7 +1017,7 @@ export const setEncryptedExtensionSecret = async (
       .executeTakeFirst()
   }
 
-  return await db
+  return await secretDb
     .insertInto('extensions.secret_entry')
     .values({
       extension_key: options.extensionKey,
@@ -1025,11 +1038,12 @@ export const setEncryptedExtensionSecret = async (
  * @param options Secret owner, key, and root encryption key.
  * @returns Decrypted JSON value, or null when absent.
  */
-export const getEncryptedExtensionSecret = async (
-  db: Kysely<ExtensionSecretDatabase>,
+export const getEncryptedExtensionSecret = async <Database extends ExtensionSecretDatabase>(
+  db: ExtensionSecretDatabaseClient<Database>,
   options: ExtensionSecretOptions
 ): Promise<JsonValue | null> => {
-  const row = await db
+  const secretDb = asExtensionSecretDatabase(db)
+  const row = await secretDb
     .selectFrom('extensions.secret_entry')
     .select(['ciphertext', 'iv', 'auth_tag', 'algorithm', 'key_version'])
     .where('extension_key', '=', options.extensionKey)
@@ -1064,14 +1078,15 @@ export const getEncryptedExtensionSecret = async (
  * @param ownerId Host or extension owner id.
  * @param secretKey Extension-owned secret key.
  */
-export const deleteEncryptedExtensionSecret = async (
-  db: Kysely<ExtensionSecretDatabase>,
+export const deleteEncryptedExtensionSecret = async <Database extends ExtensionSecretDatabase>(
+  db: ExtensionSecretDatabaseClient<Database>,
   extensionKey: string,
   ownerType: string,
   ownerId: string,
   secretKey: string
 ) => {
-  await db
+  const secretDb = asExtensionSecretDatabase(db)
+  await secretDb
     .updateTable('extensions.secret_entry')
     .set({ _deleted: true, updated_at: new Date() })
     .where('extension_key', '=', extensionKey)

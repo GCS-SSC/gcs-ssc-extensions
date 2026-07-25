@@ -1,6 +1,13 @@
 import { IncomingMessage, ServerResponse } from 'node:http'
 import { Socket } from 'node:net'
 import { createEvent } from 'h3'
+import {
+  DummyDriver,
+  Kysely,
+  PostgresAdapter,
+  PostgresIntrospector,
+  PostgresQueryCompiler
+} from 'kysely'
 import { describe, expect, it, vi } from 'vitest'
 import {
   createGcsExtensionRouteContext,
@@ -8,8 +15,24 @@ import {
   readGcsExtensionRequestBody,
   resolveExtensionAgreementByNumber,
   setEncryptedExtensionSecret,
+  type ExtensionSecretDatabase,
   type GcsExtensionRouteEvent
 } from '../../src/server'
+
+interface SecretTestDatabase extends ExtensionSecretDatabase {
+  test_audit: {
+    id: string
+  }
+}
+
+const createSecretTestDb = (): Kysely<SecretTestDatabase> => new Kysely<SecretTestDatabase>({
+  dialect: {
+    createAdapter: () => new PostgresAdapter(),
+    createDriver: () => new DummyDriver(),
+    createIntrospector: db => new PostgresIntrospector(db),
+    createQueryCompiler: () => new PostgresQueryCompiler()
+  }
+})
 
 const createAgreementLookupDb = (agreement: unknown) => {
   const query = {
@@ -73,19 +96,24 @@ describe('extension SDK server helpers', () => {
     'not-base64',
     'AAAA=AAA'
   ])('rejects malformed base64 secret root keys before database access: %s', async (rootKey) => {
-    const selectFrom = vi.fn()
+    const db = createSecretTestDb()
+    const selectFrom = vi.spyOn(db, 'selectFrom')
 
-    await expect(setEncryptedExtensionSecret({ selectFrom } as never, {
-      rootKey,
-      extensionKey: 'gcs-test',
-      ownerType: 'agency',
-      ownerId: 'agency-1',
-      secretKey: 'credential-1',
-      value: {
-        token: 'private'
-      }
-    })).rejects.toThrow('base64')
-    expect(selectFrom).not.toHaveBeenCalled()
+    try {
+      await expect(setEncryptedExtensionSecret(db, {
+        rootKey,
+        extensionKey: 'gcs-test',
+        ownerType: 'agency',
+        ownerId: 'agency-1',
+        secretKey: 'credential-1',
+        value: {
+          token: 'private'
+        }
+      })).rejects.toThrow('base64')
+      expect(selectFrom).not.toHaveBeenCalled()
+    } finally {
+      await db.destroy()
+    }
   })
 
   it('resolves agreements from the agreement profile table', async () => {
