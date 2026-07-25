@@ -1,5 +1,15 @@
+import { IncomingMessage, ServerResponse } from 'node:http'
+import { Socket } from 'node:net'
+import { createEvent } from 'h3'
 import { describe, expect, it, vi } from 'vitest'
-import { resolveExtensionAgreementByNumber } from '../../src/server'
+import {
+  createGcsExtensionRouteContext,
+  getGcsExtensionRequestHeader,
+  readGcsExtensionRequestBody,
+  resolveExtensionAgreementByNumber,
+  setEncryptedExtensionSecret,
+  type GcsExtensionRouteEvent
+} from '../../src/server'
 
 const createAgreementLookupDb = (agreement: unknown) => {
   const query = {
@@ -14,7 +24,70 @@ const createAgreementLookupDb = (agreement: unknown) => {
   return { db, query }
 }
 
+const createTestRouteEvent = (
+  body: Record<string, unknown>,
+  headerValue: string
+): GcsExtensionRouteEvent => {
+  const request = new IncomingMessage(new Socket())
+  request.method = 'POST'
+  request.headers = {
+    'content-type': 'application/json',
+    'x-extension-test': headerValue
+  }
+
+  return Object.assign(
+    createEvent(request, new ServerResponse(request)),
+    {
+      context: {
+        $db: {}
+      },
+      _requestBody: JSON.stringify(body)
+    }
+  )
+}
+
 describe('extension SDK server helpers', () => {
+  it('reads request bodies and headers from raw H3 events and route contexts', async () => {
+    const rawEvent = createTestRouteEvent({ source: 'raw-event' }, 'raw-header')
+    const contextEvent = createTestRouteEvent({ source: 'route-context' }, 'context-header')
+    const routeContext = createGcsExtensionRouteContext(contextEvent)
+
+    await expect(readGcsExtensionRequestBody(rawEvent)).resolves.toEqual({ source: 'raw-event' })
+    expect(getGcsExtensionRequestHeader(rawEvent, 'x-extension-test')).toBe('raw-header')
+    await expect(readGcsExtensionRequestBody(routeContext)).resolves.toEqual({ source: 'route-context' })
+    expect(getGcsExtensionRequestHeader(routeContext, 'x-extension-test')).toBe('context-header')
+  })
+
+  it('rejects structural SDK event mocks at the H3 request-helper boundary', async () => {
+    const event: GcsExtensionRouteEvent = {
+      context: {
+        $db: {}
+      }
+    }
+
+    await expect(readGcsExtensionRequestBody(event)).rejects.toThrow('require a host H3 event')
+    expect(() => getGcsExtensionRequestHeader(event, 'x-extension-test')).toThrow('require a host H3 event')
+  })
+
+  it.each([
+    'not-base64',
+    'AAAA=AAA'
+  ])('rejects malformed base64 secret root keys before database access: %s', async (rootKey) => {
+    const selectFrom = vi.fn()
+
+    await expect(setEncryptedExtensionSecret({ selectFrom } as never, {
+      rootKey,
+      extensionKey: 'gcs-test',
+      ownerType: 'agency',
+      ownerId: 'agency-1',
+      secretKey: 'credential-1',
+      value: {
+        token: 'private'
+      }
+    })).rejects.toThrow('base64')
+    expect(selectFrom).not.toHaveBeenCalled()
+  })
+
   it('resolves agreements from the agreement profile table', async () => {
     const { db, query } = createAgreementLookupDb({
       id: 42,

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { getHeader, readBody } from 'h3'
+import { getHeader, isEvent, readBody, type H3Event } from 'h3'
 import type { Kysely, Migration } from 'kysely'
 import type {
   ExtensionEntityTabContext,
@@ -197,12 +197,23 @@ export const defineGcsExtensionRouteHandler = <T>(
 ): GcsExtensionRawRouteHandler<T> =>
   async (event: GcsExtensionRouteEvent) => await handler(createGcsExtensionRouteContext(event))
 
+const requireHostH3Event = (
+  eventOrContext: GcsExtensionRouteEvent | GcsExtensionRouteContext
+): H3Event => {
+  const event = 'event' in eventOrContext ? eventOrContext.event : eventOrContext
+  if (!isEvent(event)) {
+    throw new TypeError('GCS extension request helpers require a host H3 event.')
+  }
+
+  return event
+}
+
 /**
  * Reads the request body from either a host event or an extension route context.
  */
 export const readGcsExtensionRequestBody = async <T = unknown>(
   eventOrContext: GcsExtensionRouteEvent | GcsExtensionRouteContext
-): Promise<T> => await readBody(('event' in eventOrContext ? eventOrContext.event : eventOrContext) as never) as T
+): Promise<T> => await readBody<T>(requireHostH3Event(eventOrContext))
 
 /**
  * Reads a request header from either a host event or an extension route context.
@@ -210,7 +221,7 @@ export const readGcsExtensionRequestBody = async <T = unknown>(
 export const getGcsExtensionRequestHeader = (
   eventOrContext: GcsExtensionRouteEvent | GcsExtensionRouteContext,
   name: string
-): string | undefined => getHeader(('event' in eventOrContext ? eventOrContext.event : eventOrContext) as never, name)
+): string | undefined => getHeader(requireHostH3Event(eventOrContext), name)
 
 /**
  * Resolves a hook database supplied directly or through its host event context.
@@ -502,13 +513,8 @@ const normalizeBase64Secret = (value: string, fieldName: string): string => {
   return normalized
 }
 
-const decodeBase64SecretChunk = (chunk: string, fieldName: string): number[] => {
+const decodeBase64SecretChunk = (chunk: string): number[] => {
   const values = [...chunk].map(character => character === '=' ? 0 : base64Alphabet.indexOf(character))
-  // Defensive in case this helper is ever called without normalizeBase64Secret.
-  if (values.some(item => item < 0)) {
-    throw new Error(`${fieldName} must be base64 encoded.`)
-  }
-
   const packed = ((values[0] ?? 0) << 18) | ((values[1] ?? 0) << 12) | ((values[2] ?? 0) << 6) | (values[3] ?? 0)
   return [
     (packed >> 16) & 255,
@@ -521,7 +527,7 @@ const base64ToBytes = (value: string, fieldName: string): Uint8Array<ArrayBuffer
   const normalized = normalizeBase64Secret(value, fieldName)
   const bytes: number[] = []
   for (let index = 0; index < normalized.length; index += 4) {
-    bytes.push(...decodeBase64SecretChunk(normalized.slice(index, index + 4), fieldName))
+    bytes.push(...decodeBase64SecretChunk(normalized.slice(index, index + 4)))
   }
 
   const output = new Uint8Array(new ArrayBuffer(bytes.length))
