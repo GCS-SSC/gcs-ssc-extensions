@@ -26,6 +26,8 @@ export const GCS_EXTENSION_AGREEMENT_STREAM_CHANGE_GUARD_HOOK
   = 'gcs:extension:agreement-stream-change-guard'
 export const GCS_EXTENSION_AGREEMENT_PAYMENT_MUTATION_GUARD_HOOK
   = 'gcs:extension:agreement-payment-mutation-guard'
+export const GCS_EXTENSION_AGREEMENT_DELETE_GUARD_HOOK
+  = 'gcs:extension:agreement-delete-guard'
 
 export type GcsExtensionDisableScope = 'agency' | 'stream'
 
@@ -145,6 +147,24 @@ export type GcsExtensionAgreementPaymentMutationGuardHookPayload = Omit<
   'extensionKey'
 >
 
+export interface GcsExtensionAgreementDeleteGuardContext {
+  extensionKey: string
+  event: unknown
+  db: Transaction<unknown>
+  agreementId: string
+  agencyId: string
+  streamId: string
+}
+
+export type GcsExtensionAgreementDeleteGuardHandler = (
+  context: GcsExtensionAgreementDeleteGuardContext
+) => Promise<void> | void
+
+export type GcsExtensionAgreementDeleteGuardHookPayload = Omit<
+  GcsExtensionAgreementDeleteGuardContext,
+  'extensionKey'
+>
+
 export interface ExtensionStreamContext {
   agencyId: string
   profileId: string
@@ -215,6 +235,10 @@ type NitroHookRegistrar = {
       (
         name: typeof GCS_EXTENSION_AGREEMENT_PAYMENT_MUTATION_GUARD_HOOK,
         handler: (payload: GcsExtensionAgreementPaymentMutationGuardHookPayload) => Promise<void> | void
+      ): void
+      (
+        name: typeof GCS_EXTENSION_AGREEMENT_DELETE_GUARD_HOOK,
+        handler: (payload: GcsExtensionAgreementDeleteGuardHookPayload) => Promise<void> | void
       ): void
       (
       name: string,
@@ -616,6 +640,30 @@ export const registerGcsExtensionAgreementPaymentMutationGuard = (
   }
 
   resolvedNitroApp.hooks.hook(GCS_EXTENSION_AGREEMENT_PAYMENT_MUTATION_GUARD_HOOK, async payload => {
+    await handler({
+      ...payload,
+      extensionKey
+    })
+  })
+}
+
+/**
+ * Registers an extension-owned guard that runs inside the locked host agreement deletion transaction.
+ */
+export const registerGcsExtensionAgreementDeleteGuard = (
+  extensionKey: string,
+  handler: GcsExtensionAgreementDeleteGuardHandler,
+  nitroApp?: NitroHookRegistrar
+) => {
+  const resolvedNitroApp = nitroApp ?? (globalThis as typeof globalThis & {
+    useNitroApp?: () => NitroHookRegistrar
+  }).useNitroApp?.()
+
+  if (!resolvedNitroApp) {
+    throw new Error('GCS extension agreement delete guards must be registered from a Nitro plugin.')
+  }
+
+  resolvedNitroApp.hooks.hook(GCS_EXTENSION_AGREEMENT_DELETE_GUARD_HOOK, async payload => {
     await handler({
       ...payload,
       extensionKey

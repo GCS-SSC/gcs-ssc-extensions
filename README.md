@@ -325,6 +325,11 @@ without changing existing hook contracts. The helper and lifecycle guard payload
 Kysely `Transaction`; a root `Kysely` client is intentionally rejected by the TypeScript contract
 because transaction-scoped advisory locks would otherwise be released after each statement.
 
+Extensions that own durable agreement history can register
+`registerGcsExtensionAgreementDeleteGuard(...)`. The host invokes this guard after extension lifecycle
+and agreement row locks are acquired and before the agreement is soft-deleted, using the same
+transaction. Throw `createGcsExtensionUserError(...)` to block deletion and roll back the host write.
+
 ### Extension-Owned User Errors
 
 Extensions own their user-facing rule and validation messages. Do not pass host i18n keys such as `validation.date_range` to `createGcsExtensionUserError(...)`; the host will not translate them for you. Instead, keep a small extension-owned error catalog and pass bilingual `{ en, fr }` message objects.

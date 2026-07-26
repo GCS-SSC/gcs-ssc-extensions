@@ -12,12 +12,14 @@ import {
 import { describe, expect, it, vi } from 'vitest'
 import {
   createGcsExtensionRouteContext,
+  GCS_EXTENSION_AGREEMENT_DELETE_GUARD_HOOK,
   GCS_EXTENSION_AGREEMENT_LIFECYCLE_LOCK_HOOK,
   GCS_EXTENSION_AGREEMENT_STREAM_CHANGE_GUARD_HOOK,
   GCS_EXTENSION_DISABLE_GUARD_HOOK,
   getGcsExtensionRequestHeader,
   lockGcsExtensionLifecycleScope,
   readGcsExtensionRequestBody,
+  registerGcsExtensionAgreementDeleteGuard,
   registerGcsExtensionAgreementLifecycleLock,
   registerGcsExtensionAgreementStreamChangeGuard,
   registerGcsExtensionDisableGuard,
@@ -290,6 +292,41 @@ describe('extension SDK server helpers', () => {
 
     expect(registeredName).toBe(GCS_EXTENSION_AGREEMENT_LIFECYCLE_LOCK_HOOK)
     expect(handler).toHaveBeenCalledWith({
+      ...payload,
+      extensionKey: 'gcs-test'
+    })
+  })
+
+  it('injects the registered extension key into locked agreement deletion guards', async () => {
+    let registeredName = ''
+    let registeredHook: ((payload: {
+      event: unknown
+      db: Transaction<unknown>
+      agreementId: string
+      agencyId: string
+      streamId: string
+    }) => Promise<void>) | undefined
+    const guard = vi.fn()
+    registerGcsExtensionAgreementDeleteGuard('gcs-test', guard, {
+      hooks: {
+        hook: (name: string, hook: typeof registeredHook) => {
+          registeredName = name
+          registeredHook = hook
+        }
+      }
+    } as never)
+    const payload = {
+      event: {},
+      db: {} as Transaction<unknown>,
+      agreementId: 'agreement-1',
+      agencyId: 'agency-1',
+      streamId: 'stream-1'
+    }
+
+    await registeredHook?.(payload)
+
+    expect(registeredName).toBe(GCS_EXTENSION_AGREEMENT_DELETE_GUARD_HOOK)
+    expect(guard).toHaveBeenCalledWith({
       ...payload,
       extensionKey: 'gcs-test'
     })
