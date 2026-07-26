@@ -316,6 +316,15 @@ export default defineGcsExtensionNitroPlugin(nitroApp => {
 
 When a handler returns `{ status: 'handled', response }` before the host insert, the host skips its default create logic and returns the extension response. When no handler takes over, the host creates the normal draft record and calls handlers again with `createdRecord` inside the same transaction. Throwing `createGcsExtensionUserError(...)` communicates a user-correctable error and rolls back the transaction. Unexpected errors also roll back and are treated as system errors.
 
+Extensions that generate durable records from agency or stream configuration can call
+`lockGcsExtensionLifecycleScope(context.trx, context.extensionKey, context.agencyId, context.streamId)`
+before entity-level locks and then re-read their current configuration. The host takes the same
+transaction-scoped lock for agency and stream configuration writes. Agency scope is always locked
+before stream scope, which serializes configuration changes, disable guards, and generated work
+without changing existing hook contracts. The helper and lifecycle guard payloads require an active
+Kysely `Transaction`; a root `Kysely` client is intentionally rejected by the TypeScript contract
+because transaction-scoped advisory locks would otherwise be released after each statement.
+
 ### Extension-Owned User Errors
 
 Extensions own their user-facing rule and validation messages. Do not pass host i18n keys such as `validation.date_range` to `createGcsExtensionUserError(...)`; the host will not translate them for you. Instead, keep a small extension-owned error catalog and pass bilingual `{ en, fr }` message objects.

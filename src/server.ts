@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { getHeader, isEvent, readBody, type H3Event } from 'h3'
-import type { Generated, Kysely, Migration, Transaction } from 'kysely'
+import { sql, type Generated, type Kysely, type Migration, type Transaction } from 'kysely'
 import type {
   ExtensionEntityTabContext,
   ExtensionScope,
@@ -19,6 +19,131 @@ export type GcsExtensionMigration = Migration
 export const defineGcsExtensionMigration = <T extends GcsExtensionMigration>(migration: T): T => migration
 
 export const GCS_EXTENSION_CREATE_OPERATION_HOOK = 'gcs:extension:create-operation'
+export const GCS_EXTENSION_DISABLE_GUARD_HOOK = 'gcs:extension:disable-guard'
+export const GCS_EXTENSION_AGREEMENT_LIFECYCLE_LOCK_HOOK
+  = 'gcs:extension:agreement-lifecycle-lock'
+export const GCS_EXTENSION_AGREEMENT_STREAM_CHANGE_GUARD_HOOK
+  = 'gcs:extension:agreement-stream-change-guard'
+export const GCS_EXTENSION_AGREEMENT_PAYMENT_MUTATION_GUARD_HOOK
+  = 'gcs:extension:agreement-payment-mutation-guard'
+
+export type GcsExtensionDisableScope = 'agency' | 'stream'
+
+export interface GcsExtensionDisableGuardContext {
+  extensionKey: string
+  scope: GcsExtensionDisableScope
+  event: unknown
+  db: Transaction<unknown>
+  agencyId: string
+  streamId?: string
+}
+
+export type GcsExtensionDisableGuardHandler = (
+  context: GcsExtensionDisableGuardContext
+) => Promise<void> | void
+
+const getExtensionLifecycleLockKey = (
+  extensionKey: string,
+  scope: GcsExtensionDisableScope,
+  scopeId: string
+): string => `gcs-extension-lifecycle:${extensionKey}:${scope}:${scopeId}`
+
+/**
+ * Serializes extension lifecycle work with host agency and stream configuration mutations.
+ *
+ * Agency scope is always acquired before stream scope. Extension handlers must take these
+ * locks before entity-level locks so configuration changes cannot race generated work.
+ */
+export const lockGcsExtensionLifecycleScope = async (
+  db: Transaction<unknown>,
+  extensionKey: string,
+  agencyId: string,
+  streamId?: string
+): Promise<void> => {
+  await sql`
+    select pg_advisory_xact_lock(
+      hashtextextended(${getExtensionLifecycleLockKey(extensionKey, 'agency', agencyId)}, 0)
+    )
+  `.execute(db)
+
+  if (streamId !== undefined) {
+    await sql`
+      select pg_advisory_xact_lock(
+        hashtextextended(${getExtensionLifecycleLockKey(extensionKey, 'stream', streamId)}, 0)
+      )
+    `.execute(db)
+  }
+}
+
+export interface GcsExtensionDisableGuardHookPayload extends GcsExtensionDisableGuardContext {}
+
+export interface GcsExtensionAgreementLifecycleLockContext {
+  extensionKey: string
+  event: unknown
+  db: Transaction<unknown>
+  agreementId: string
+  agencyId: string
+  currentStreamId: string
+  targetStreamIds: string[]
+}
+
+export type GcsExtensionAgreementLifecycleLockHandler = (
+  context: GcsExtensionAgreementLifecycleLockContext
+) => Promise<void> | void
+
+export type GcsExtensionAgreementLifecycleLockHookPayload = Omit<
+  GcsExtensionAgreementLifecycleLockContext,
+  'extensionKey'
+>
+
+export interface GcsExtensionAgreementStreamChangeGuardContext {
+  extensionKey: string
+  event: unknown
+  db: Transaction<unknown>
+  agreementId: string
+  agencyId: string
+  currentStreamId: string
+  nextStreamId: string
+}
+
+export type GcsExtensionAgreementStreamChangeGuardHandler = (
+  context: GcsExtensionAgreementStreamChangeGuardContext
+) => Promise<void> | void
+
+export type GcsExtensionAgreementStreamChangeGuardHookPayload = Omit<
+  GcsExtensionAgreementStreamChangeGuardContext,
+  'extensionKey'
+>
+
+export type GcsExtensionAgreementPaymentMutation =
+  | 'payment.update'
+  | 'payment.delete'
+  | 'payment.status-change'
+  | 'payment-line.create'
+  | 'payment-line.update'
+  | 'payment-line.delete'
+
+export interface GcsExtensionAgreementPaymentMutationGuardContext {
+  extensionKey: string
+  operation: GcsExtensionAgreementPaymentMutation
+  event: unknown
+  db: Transaction<unknown>
+  agreementId: string
+  paymentId: string
+  paymentLineId?: string
+  currentStatus?: string
+  nextStatus?: string
+  changes?: Record<string, unknown>
+}
+
+export type GcsExtensionAgreementPaymentMutationGuardHandler = (
+  context: GcsExtensionAgreementPaymentMutationGuardContext
+) => Promise<void> | void
+
+export type GcsExtensionAgreementPaymentMutationGuardHookPayload = Omit<
+  GcsExtensionAgreementPaymentMutationGuardContext,
+  'extensionKey'
+>
 
 export interface ExtensionStreamContext {
   agencyId: string
@@ -76,6 +201,22 @@ type NitroHookRegistrar = {
         handler: (payload: GcsExtensionCreateOperationHookPayload) => Promise<void> | void
       ): void
       (
+        name: typeof GCS_EXTENSION_DISABLE_GUARD_HOOK,
+        handler: (payload: GcsExtensionDisableGuardHookPayload) => Promise<void> | void
+      ): void
+      (
+        name: typeof GCS_EXTENSION_AGREEMENT_LIFECYCLE_LOCK_HOOK,
+        handler: (payload: GcsExtensionAgreementLifecycleLockHookPayload) => Promise<void> | void
+      ): void
+      (
+        name: typeof GCS_EXTENSION_AGREEMENT_STREAM_CHANGE_GUARD_HOOK,
+        handler: (payload: GcsExtensionAgreementStreamChangeGuardHookPayload) => Promise<void> | void
+      ): void
+      (
+        name: typeof GCS_EXTENSION_AGREEMENT_PAYMENT_MUTATION_GUARD_HOOK,
+        handler: (payload: GcsExtensionAgreementPaymentMutationGuardHookPayload) => Promise<void> | void
+      ): void
+      (
       name: string,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Nitro permits arbitrary hook payload shapes
         handler: (payload: any) => Promise<void> | void
@@ -97,6 +238,7 @@ export interface GcsExtensionRouteEvent {
     gcsExtension?: {
       extensionKey?: string
       config: GcsExtensionJsonConfig | unknown
+      authorizeFresh?: (db: unknown) => Promise<void>
       entity?: Record<string, unknown>
       stream?: Record<string, unknown>
       agency?: Record<string, unknown>
@@ -116,6 +258,7 @@ export interface GcsExtensionRouteContext {
   stream?: Record<string, unknown>
   agency?: Record<string, unknown>
   authorizedScope?: ExtensionScope
+  authorizeFresh?: (db: unknown) => Promise<void>
   readBody: <T = unknown>() => Promise<T>
   getHeader: (name: string) => string | undefined
 }
@@ -161,6 +304,9 @@ export const createGcsExtensionRouteContext = (event: GcsExtensionRouteEvent): G
   }
   if (event.context.gcsExtension?.extensionKey) {
     context.extensionKey = event.context.gcsExtension.extensionKey
+  }
+  if (event.context.gcsExtension?.authorizeFresh) {
+    context.authorizeFresh = event.context.gcsExtension.authorizeFresh
   }
   if (event.context.gcsExtension?.entity) {
     context.entity = event.context.gcsExtension.entity
@@ -377,6 +523,103 @@ export const registerGcsExtensionCreateOperationHandler = (
         result
       })
     }
+  })
+}
+
+/**
+ * Registers an extension-owned guard that runs through the host's actual disable lifecycle.
+ */
+export const registerGcsExtensionDisableGuard = (
+  extensionKey: string,
+  handler: GcsExtensionDisableGuardHandler,
+  nitroApp?: NitroHookRegistrar
+) => {
+  const resolvedNitroApp = nitroApp ?? (globalThis as typeof globalThis & {
+    useNitroApp?: () => NitroHookRegistrar
+  }).useNitroApp?.()
+
+  if (!resolvedNitroApp) {
+    throw new Error('GCS extension disable guards must be registered from a Nitro plugin.')
+  }
+
+  resolvedNitroApp.hooks.hook(GCS_EXTENSION_DISABLE_GUARD_HOOK, async payload => {
+    if (payload.extensionKey !== extensionKey) {
+      return
+    }
+
+    await handler(payload)
+  })
+}
+
+/**
+ * Registers extension agreement locks that must run after scope locks and before the host profile row lock.
+ */
+export const registerGcsExtensionAgreementLifecycleLock = (
+  extensionKey: string,
+  handler: GcsExtensionAgreementLifecycleLockHandler,
+  nitroApp?: NitroHookRegistrar
+) => {
+  const resolvedNitroApp = nitroApp ?? (globalThis as typeof globalThis & {
+    useNitroApp?: () => NitroHookRegistrar
+  }).useNitroApp?.()
+
+  if (!resolvedNitroApp) {
+    throw new Error('GCS extension agreement lifecycle locks must be registered from a Nitro plugin.')
+  }
+
+  resolvedNitroApp.hooks.hook(GCS_EXTENSION_AGREEMENT_LIFECYCLE_LOCK_HOOK, async payload => {
+    await handler({
+      ...payload,
+      extensionKey
+    })
+  })
+}
+
+/**
+ * Registers an extension-owned guard that runs before the host reassigns an agreement stream.
+ */
+export const registerGcsExtensionAgreementStreamChangeGuard = (
+  extensionKey: string,
+  handler: GcsExtensionAgreementStreamChangeGuardHandler,
+  nitroApp?: NitroHookRegistrar
+) => {
+  const resolvedNitroApp = nitroApp ?? (globalThis as typeof globalThis & {
+    useNitroApp?: () => NitroHookRegistrar
+  }).useNitroApp?.()
+
+  if (!resolvedNitroApp) {
+    throw new Error('GCS extension agreement stream change guards must be registered from a Nitro plugin.')
+  }
+
+  resolvedNitroApp.hooks.hook(GCS_EXTENSION_AGREEMENT_STREAM_CHANGE_GUARD_HOOK, async payload => {
+    await handler({
+      ...payload,
+      extensionKey
+    })
+  })
+}
+
+/**
+ * Registers an extension-owned guard that runs inside host payment mutation transactions.
+ */
+export const registerGcsExtensionAgreementPaymentMutationGuard = (
+  extensionKey: string,
+  handler: GcsExtensionAgreementPaymentMutationGuardHandler,
+  nitroApp?: NitroHookRegistrar
+) => {
+  const resolvedNitroApp = nitroApp ?? (globalThis as typeof globalThis & {
+    useNitroApp?: () => NitroHookRegistrar
+  }).useNitroApp?.()
+
+  if (!resolvedNitroApp) {
+    throw new Error('GCS extension agreement payment mutation guards must be registered from a Nitro plugin.')
+  }
+
+  resolvedNitroApp.hooks.hook(GCS_EXTENSION_AGREEMENT_PAYMENT_MUTATION_GUARD_HOOK, async payload => {
+    await handler({
+      ...payload,
+      extensionKey
+    })
   })
 }
 
