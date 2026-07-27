@@ -24,6 +24,7 @@ import {
   registerGcsExtensionAgreementStreamChangeGuard,
   registerGcsExtensionDisableGuard,
   resolveExtensionAgreementByNumber,
+  resolveExtensionStreamContext,
   setEncryptedExtensionSecret,
   type ExtensionSecretDatabase,
   type GcsExtensionRouteEvent
@@ -82,6 +83,23 @@ const createTestRouteEvent = (
 }
 
 describe('extension SDK server helpers', () => {
+  it('requires an active owning agency when resolving an extension stream', async () => {
+    const query = {
+      innerJoin: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      executeTakeFirst: vi.fn(async () => undefined)
+    }
+    const db = { selectFrom: vi.fn(() => query) }
+
+    await expect(resolveExtensionStreamContext(db as any, 'stream-1')).resolves.toBeNull()
+    expect(query.innerJoin).toHaveBeenCalledWith(
+      'Agency_Profile',
+      'Agency_Profile.id',
+      'Transfer_Payment_Profile.egcs_tp_agency'
+    )
+    expect(query.where).toHaveBeenCalledWith('Agency_Profile._deleted', '=', false)
+  })
   it('locks agency scope before stream scope with stable extension-specific keys', async () => {
     const driver = new DummyDriver()
     const db = createSecretTestDb(driver)
@@ -120,6 +138,27 @@ describe('extension SDK server helpers', () => {
     expect(getGcsExtensionRequestHeader(rawEvent, 'x-extension-test')).toBe('raw-header')
     await expect(readGcsExtensionRequestBody(routeContext)).resolves.toEqual({ source: 'route-context' })
     expect(getGcsExtensionRequestHeader(routeContext, 'x-extension-test')).toBe('context-header')
+  })
+
+  it('exposes the host-owned ordered write authorization phases', () => {
+    const event = createTestRouteEvent({}, 'header')
+    const writeAuthorization = {
+      lockAuthState: vi.fn(async () => undefined),
+      authorizeCurrentScope: vi.fn(async () => undefined),
+      authorizeCurrentEntity: vi.fn(async () => undefined),
+      lockAndAuthorizeAgreement: vi.fn(async () => true)
+    }
+    const agreementAccess = {
+      listVisibleOptions: vi.fn(async () => [])
+    }
+    event.context.gcsExtension = {
+      config: {},
+      writeAuthorization,
+      agreementAccess
+    }
+
+    expect(createGcsExtensionRouteContext(event).writeAuthorization).toBe(writeAuthorization)
+    expect(createGcsExtensionRouteContext(event).agreementAccess).toBe(agreementAccess)
   })
 
   it('rejects structural SDK event mocks at the H3 request-helper boundary', async () => {

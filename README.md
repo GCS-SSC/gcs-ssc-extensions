@@ -330,6 +330,16 @@ Extensions that own durable agreement history can register
 and agreement row locks are acquired and before the agreement is soft-deleted, using the same
 transaction. Throw `createGcsExtensionUserError(...)` to block deletion and roll back the host write.
 
+Extension routes that expose agreement choices must use
+`context.agreementAccess.listVisibleOptions(db, { streamId, action })`; the host filters active
+agreements through its agreement-level role and team visibility rules. An extension transaction
+that writes an agreement-owned record must first call `writeAuthorization.lockAuthState(trx)`, take
+its registered lifecycle locks, reauthorize its current route scope, and then call
+`writeAuthorization.lockAndAuthorizeAgreement?.(trx, { agreementId, streamId, action })`. The host
+locks the agreement row, re-resolves its active stream scope, and performs fresh agreement
+authorization on the same transaction. A `false` result means the agreement is inactive or has
+moved outside the requested stream; authorization denial is thrown by the host.
+
 ### Extension-Owned User Errors
 
 Extensions own their user-facing rule and validation messages. Do not pass host i18n keys such as `validation.date_range` to `createGcsExtensionUserError(...)`; the host will not translate them for you. Instead, keep a small extension-owned error catalog and pass bilingual `{ en, fr }` message objects.

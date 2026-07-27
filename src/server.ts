@@ -262,7 +262,8 @@ export interface GcsExtensionRouteEvent {
     gcsExtension?: {
       extensionKey?: string
       config: GcsExtensionJsonConfig | unknown
-      authorizeFresh?: (db: unknown) => Promise<void>
+      writeAuthorization?: GcsExtensionWriteAuthorization
+      agreementAccess?: GcsExtensionAgreementAccess
       entity?: Record<string, unknown>
       stream?: Record<string, unknown>
       agency?: Record<string, unknown>
@@ -282,7 +283,8 @@ export interface GcsExtensionRouteContext {
   stream?: Record<string, unknown>
   agency?: Record<string, unknown>
   authorizedScope?: ExtensionScope
-  authorizeFresh?: (db: unknown) => Promise<void>
+  writeAuthorization?: GcsExtensionWriteAuthorization
+  agreementAccess?: GcsExtensionAgreementAccess
   readBody: <T = unknown>() => Promise<T>
   getHeader: (name: string) => string | undefined
 }
@@ -301,6 +303,35 @@ export interface GcsExtensionAuthContext {
     ) => boolean | Promise<boolean>
     isRootAdmin?: () => boolean
   }
+}
+
+/** Host-owned authorization phases for extension transactions that acquire lifecycle locks. */
+export interface GcsExtensionWriteAuthorization {
+  /** Locks and rebuilds the current user's grant graph before extension lifecycle locks. */
+  lockAuthState: (db: unknown) => Promise<void>
+  /** Re-resolves and authorizes the current agency, stream, or entity after extension lifecycle locks. */
+  authorizeCurrentScope?: (db: unknown) => Promise<void>
+  /** Compatibility alias for extensions built against the original entity-only write protocol. */
+  authorizeCurrentEntity: (db: unknown) => Promise<void>
+  /** Locks, re-resolves, and freshly authorizes an agreement in the owning transaction. */
+  lockAndAuthorizeAgreement?: (
+    db: unknown,
+    input: { agreementId: string; streamId: string; action: 'update' | 'delete' }
+  ) => Promise<boolean>
+}
+
+export interface GcsExtensionAgreementOption {
+  id: string
+  agreementNumber: string
+  label: string
+}
+
+/** Host-owned agreement visibility queries for extension routes. */
+export interface GcsExtensionAgreementAccess {
+  listVisibleOptions: (
+    db: unknown,
+    input: { streamId: string; action: 'read' | 'update' }
+  ) => Promise<GcsExtensionAgreementOption[]>
 }
 
 export type GcsExtensionRawRouteHandler<T = unknown> = (
@@ -329,8 +360,11 @@ export const createGcsExtensionRouteContext = (event: GcsExtensionRouteEvent): G
   if (event.context.gcsExtension?.extensionKey) {
     context.extensionKey = event.context.gcsExtension.extensionKey
   }
-  if (event.context.gcsExtension?.authorizeFresh) {
-    context.authorizeFresh = event.context.gcsExtension.authorizeFresh
+  if (event.context.gcsExtension?.writeAuthorization) {
+    context.writeAuthorization = event.context.gcsExtension.writeAuthorization
+  }
+  if (event.context.gcsExtension?.agreementAccess) {
+    context.agreementAccess = event.context.gcsExtension.agreementAccess
   }
   if (event.context.gcsExtension?.entity) {
     context.entity = event.context.gcsExtension.entity
@@ -925,6 +959,10 @@ const decryptExtensionSecretValue = async (
 }
 
 export interface ExtensionStreamContextDatabase {
+  Agency_Profile: {
+    id: unknown
+    _deleted: boolean
+  }
   Transfer_Payment_Profile: {
     id: unknown
     egcs_tp_agency: unknown
@@ -943,6 +981,11 @@ export interface ExtensionStreamContextQueryBuilder {
     leftColumn: 'Transfer_Payment_Profile.id',
     rightColumn: 'Transfer_Payment_Stream.egcs_tp_transferpaymentprofile'
   ): ExtensionStreamContextQueryBuilder
+  innerJoin(
+    table: 'Agency_Profile',
+    leftColumn: 'Agency_Profile.id',
+    rightColumn: 'Transfer_Payment_Profile.egcs_tp_agency'
+  ): ExtensionStreamContextQueryBuilder
   select(columns: [
     'Transfer_Payment_Profile.id as profile_id',
     'Transfer_Payment_Profile.egcs_tp_agency as agency_id'
@@ -951,7 +994,8 @@ export interface ExtensionStreamContextQueryBuilder {
     column:
       | 'Transfer_Payment_Stream.id'
       | 'Transfer_Payment_Stream._deleted'
-      | 'Transfer_Payment_Profile._deleted',
+      | 'Transfer_Payment_Profile._deleted'
+      | 'Agency_Profile._deleted',
     operator: '=',
     value: string | boolean
   ): ExtensionStreamContextQueryBuilder
@@ -1129,6 +1173,7 @@ export const resolveExtensionStreamContext = async (
   const stream = await db
     .selectFrom('Transfer_Payment_Stream')
     .innerJoin('Transfer_Payment_Profile', 'Transfer_Payment_Profile.id', 'Transfer_Payment_Stream.egcs_tp_transferpaymentprofile')
+    .innerJoin('Agency_Profile', 'Agency_Profile.id', 'Transfer_Payment_Profile.egcs_tp_agency')
     .select([
       'Transfer_Payment_Profile.id as profile_id',
       'Transfer_Payment_Profile.egcs_tp_agency as agency_id'
@@ -1136,6 +1181,7 @@ export const resolveExtensionStreamContext = async (
     .where('Transfer_Payment_Stream.id', '=', streamId)
     .where('Transfer_Payment_Stream._deleted', '=', false)
     .where('Transfer_Payment_Profile._deleted', '=', false)
+    .where('Agency_Profile._deleted', '=', false)
     .executeTakeFirst()
 
   if (!stream) return null
