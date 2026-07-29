@@ -1,4 +1,5 @@
 import type { Component } from 'vue'
+import type { GcsExtensionAuthContext } from './server'
 
 export interface GcsRef<T> {
   value: T
@@ -49,12 +50,7 @@ export interface GcsGroupedTableExpansionOptions<Row> {
 export interface GcsExtensionEvent {
   context: {
     $db: unknown
-    $authContext?: {
-      userAbilities: {
-        authorize: (...args: unknown[]) => boolean
-      }
-      userId: string
-    }
+    $authContext?: GcsExtensionAuthContext
     params?: Record<string, string | undefined>
   }
   node?: {
