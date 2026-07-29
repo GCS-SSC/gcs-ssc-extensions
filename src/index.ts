@@ -127,7 +127,7 @@ export type GcsExtensionSlot =
 export type GcsExtensionRbacAction = 'create' | 'read' | 'update' | 'delete'
 
 export type GcsExtensionRbacSubject =
-  | 'all'
+  | 'system'
   | 'agency'
   | 'transfer_payment'
   | 'role'

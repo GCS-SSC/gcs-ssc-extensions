@@ -15,7 +15,7 @@ export type GcsFetchStatus = 'idle' | 'pending' | 'success' | 'error'
 export type GcsExtensionRbacAction = 'create' | 'read' | 'update' | 'delete'
 
 export type GcsExtensionRbacSubject =
-  | 'all'
+  | 'system'
   | 'agency'
   | 'transfer_payment'
   | 'role'
@@ -51,7 +51,6 @@ export interface GcsExtensionEvent {
     $db: unknown
     $authContext?: {
       userAbilities: {
-        authorizeWithTeam: (...args: unknown[]) => Promise<boolean>
         authorize: (...args: unknown[]) => boolean
       }
       userId: string

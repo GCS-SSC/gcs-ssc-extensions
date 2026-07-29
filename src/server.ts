@@ -293,15 +293,6 @@ export interface GcsExtensionAuthContext {
   userId: string
   userAbilities: {
     authorize: (subject: string, action: string, scope: ExtensionScope) => boolean
-    authorizeWithTeam: (
-      subject: string,
-      action: string,
-      scope: ExtensionScope,
-      userId: string,
-      includeInherited: boolean,
-      db: unknown
-    ) => boolean | Promise<boolean>
-    isRootAdmin?: () => boolean
   }
 }
 
