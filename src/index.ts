@@ -127,7 +127,7 @@ export type GcsExtensionSlot =
 export type GcsExtensionRbacAction = 'create' | 'read' | 'update' | 'delete'
 
 export type GcsExtensionRbacSubject =
-  | 'all'
+  | 'system'
   | 'agency'
   | 'transfer_payment'
   | 'role'
@@ -378,12 +378,22 @@ export interface GcsExtensionSlotDefinition extends GcsExtensionComponentDefinit
   slot: GcsExtensionSlot
 }
 
-export interface GcsExtensionEntityTabDefinition extends GcsExtensionComponentDefinition {
-  target: GcsExtensionEntityTabTarget
+type GcsExtensionAgreementEntityTabTarget = Exclude<GcsExtensionEntityTabTarget, 'proponent'>
+
+type GcsExtensionEntityTabAuthorization =
+  | {
+    target: 'proponent'
+    rbac: GcsExtensionRbacRequirement & { subject: 'applicant_recipient' }
+  }
+  | {
+    target: GcsExtensionAgreementEntityTabTarget
+    rbac: GcsExtensionRbacRequirement & { subject: 'agreement' }
+  }
+
+export type GcsExtensionEntityTabDefinition = GcsExtensionComponentDefinition & GcsExtensionEntityTabAuthorization & {
   id: string
   label: GcsExtensionBilingualLabel
   icon?: string
-  rbac: GcsExtensionRbacRequirement
 }
 
 export interface GcsExtensionCreateActionDefinition extends GcsExtensionComponentDefinition {
@@ -414,6 +424,22 @@ export interface GcsExtensionAssetDefinition {
   packagePath?: string
 }
 
+export type GcsExtensionServerEntityRbacRequirement =
+  | (GcsExtensionRbacRequirement & {
+    subject: 'applicant_recipient'
+    entity: {
+      target: 'proponent'
+      param: string
+    }
+  })
+  | (GcsExtensionRbacRequirement & {
+    subject: 'agreement'
+    entity: {
+      target: GcsExtensionAgreementEntityTabTarget
+      param: string
+    }
+  })
+
 export interface GcsExtensionServerHandlerDefinition {
   route: string
   method?: 'get' | 'post' | 'put' | 'patch' | 'delete'
@@ -424,24 +450,18 @@ export interface GcsExtensionServerHandlerDefinition {
    * before extension code runs.
    */
   auth?: 'manual'
-  rbac?: GcsExtensionRbacRequirement & (
-    | {
-      entity: {
-        target: GcsExtensionEntityTabTarget
-        param: string
-      }
-    }
-    | {
+  rbac?:
+    | GcsExtensionServerEntityRbacRequirement
+    | (GcsExtensionRbacRequirement & {
       stream: {
         param: string
       }
-    }
-    | {
+    })
+    | (GcsExtensionRbacRequirement & {
       agency: {
         param: string
       }
-    }
-  )
+    })
 }
 
 export interface GcsExtensionRuntimeResolverDefinition {

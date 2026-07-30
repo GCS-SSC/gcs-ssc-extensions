@@ -1,4 +1,5 @@
 import type { Component } from 'vue'
+import type { GcsExtensionAuthContext } from './server'
 
 export interface GcsRef<T> {
   value: T
@@ -15,7 +16,7 @@ export type GcsFetchStatus = 'idle' | 'pending' | 'success' | 'error'
 export type GcsExtensionRbacAction = 'create' | 'read' | 'update' | 'delete'
 
 export type GcsExtensionRbacSubject =
-  | 'all'
+  | 'system'
   | 'agency'
   | 'transfer_payment'
   | 'role'
@@ -49,13 +50,7 @@ export interface GcsGroupedTableExpansionOptions<Row> {
 export interface GcsExtensionEvent {
   context: {
     $db: unknown
-    $authContext?: {
-      userAbilities: {
-        authorizeWithTeam: (...args: unknown[]) => Promise<boolean>
-        authorize: (...args: unknown[]) => boolean
-      }
-      userId: string
-    }
+    $authContext?: GcsExtensionAuthContext
     params?: Record<string, string | undefined>
   }
   node?: {
