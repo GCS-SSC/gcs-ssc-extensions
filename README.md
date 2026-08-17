@@ -580,4 +580,4 @@ The package includes a `prepare` script, so GitHub-based installs build `dist` a
 
 ## Adding Host Capabilities
 
-When an extension needs a new host type, schema, or helper, add it here first and document the contract in `specs/extensions-sdk.md`. Keep host internals behind this boundary so standalone extension repositories can typecheck and test without depending on the full GCS-SSC application source tree.
+When an extension needs a new host type, schema, or helper, add it here first and document the host boundary in the main application's `architecture/extensions.md`. Keep host internals behind this boundary so standalone extension repositories can typecheck and test without depending on the full GCS-SSC application source tree.
