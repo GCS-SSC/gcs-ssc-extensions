@@ -8,6 +8,7 @@ import {
   clearExtensionUiRuntime,
   createExtensionApiClient,
   createHostApiClient,
+  ExtensionStatusSelect,
   setExtensionUiRuntime,
   useExtensionConfirmDialog,
   useExtensionFetch,
@@ -58,6 +59,16 @@ describe('extension SDK API clients', () => {
 })
 
 describe('extension SDK UI runtime adapters', () => {
+  it('exposes the host status selector through the public UI runtime', () => {
+    const runtime = createExtensionTestUiRuntime()
+    setExtensionUiRuntime(runtime)
+
+    expect(ExtensionStatusSelect).toBeTruthy()
+    expect(runtime.components.CommonStatusSelect).toBeTruthy()
+
+    clearExtensionUiRuntime()
+  })
+
   it('preserves undefined Nuxt fetch data and forwards required confirmation options', async () => {
     const runtime = createExtensionTestUiRuntime()
     const confirm = vi.fn(async ({ title }: { title: string }) => title === 'Continue')

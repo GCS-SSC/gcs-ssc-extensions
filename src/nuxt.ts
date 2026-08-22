@@ -76,6 +76,7 @@ declare global {
   const CommonRouteTabs: Component
   const CommonSection: Component
   const CommonStatusBadge: Component
+  const CommonStatusSelect: Component
   const UAccordion: Component
   const UAlert: Component
   const UBadge: Component
