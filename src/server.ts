@@ -1099,10 +1099,9 @@ export interface ExtensionStreamContextDatabaseClient {
 }
 
 export type ReviewSchemaContentSource = {
+  definition?: JsonValue | null
   egcs_cn_scoringmatrix?: JsonValue | null
   egcs_cn_assessmentschema?: JsonValue | null
-  egcs_cn_publishedscoringmatrix?: JsonValue | null
-  egcs_cn_publishedassessmentschema?: JsonValue | null
 }
 
 export type ReviewSchemaContent = {
@@ -1241,12 +1240,17 @@ export const AssessmentDefinitionSchema = z.object({
 export type AssessmentDefinition = z.infer<typeof AssessmentDefinitionSchema>
 
 /**
- * Selects editable review-schema content first, falling back to the published snapshots.
+ * Resolves review-schema content from an exact canonical publication definition.
  */
-export const getReviewSchemaEffectiveContent = (schema: ReviewSchemaContentSource): ReviewSchemaContent => ({
-  scoringMatrix: schema.egcs_cn_scoringmatrix ?? schema.egcs_cn_publishedscoringmatrix ?? null,
-  assessmentSchema: schema.egcs_cn_assessmentschema ?? schema.egcs_cn_publishedassessmentschema ?? null
-})
+export const getReviewSchemaEffectiveContent = (schema: ReviewSchemaContentSource): ReviewSchemaContent => {
+  const definition = schema.definition && typeof schema.definition === 'object' && !Array.isArray(schema.definition)
+    ? schema.definition as Record<string, JsonValue>
+    : null
+  return {
+    scoringMatrix: definition?.scoringMatrix ?? schema.egcs_cn_scoringmatrix ?? null,
+    assessmentSchema: definition?.assessmentSchema ?? schema.egcs_cn_assessmentschema ?? null
+  }
+}
 
 /**
  * Resolves the host stream, transfer payment profile, agency, and extension scope for an extension route.

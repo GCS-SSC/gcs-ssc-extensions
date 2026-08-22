@@ -19,6 +19,7 @@ import {
   GCS_EXTENSION_CONFIGURATION_GUARD_HOOK,
   GCS_EXTENSION_STATUS_REFERENCE_GUARD_HOOK,
   getGcsExtensionRequestHeader,
+  getReviewSchemaEffectiveContent,
   lockGcsExtensionLifecycleScope,
   readGcsExtensionRequestBody,
   registerGcsExtensionAgreementDeleteGuard,
@@ -87,6 +88,33 @@ const createTestRouteEvent = (
 }
 
 describe('extension SDK server helpers', () => {
+  it('reads assessment content from an exact canonical publication definition', () => {
+    expect(getReviewSchemaEffectiveContent({
+      definition: {
+        scoringMatrix: { strategy: 'weighted' },
+        assessmentSchema: { sections: [{ key: 'eligibility' }] }
+      }
+    })).toEqual({
+      scoringMatrix: { strategy: 'weighted' },
+      assessmentSchema: { sections: [{ key: 'eligibility' }] }
+    })
+  })
+
+  it('falls back safely when a canonical definition is null or malformed', () => {
+    expect(getReviewSchemaEffectiveContent({
+      definition: ['invalid'],
+      egcs_cn_scoringmatrix: { legacy: 'matrix' },
+      egcs_cn_assessmentschema: { legacy: 'schema' }
+    })).toEqual({
+      scoringMatrix: { legacy: 'matrix' },
+      assessmentSchema: { legacy: 'schema' }
+    })
+    expect(getReviewSchemaEffectiveContent({ definition: null })).toEqual({
+      scoringMatrix: null,
+      assessmentSchema: null
+    })
+  })
+
   it('requires an active owning agency when resolving an extension stream', async () => {
     const query = {
       innerJoin: vi.fn().mockReturnThis(),
