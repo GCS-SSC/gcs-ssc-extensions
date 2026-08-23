@@ -472,6 +472,51 @@ export interface GcsExtensionMigrationDefinition {
   path: string
 }
 
+export type GcsLifecycleEntityTransitionMode = 'workflow_only' | 'completion_workflow'
+export type GcsLifecycleEntityWorkflowPurpose = 'standard' | 'approval_submission' | 'close_out'
+export type GcsLifecycleEntityOwnerKind = 'agreement' | 'proponent'
+export type GcsLifecycleEntityAssignmentMode = 'independent' | 'inherited'
+export type GcsQualifiedExtensionEntityType = `${string}:${string}`
+
+/**
+ * Declares one extension-owned business entity to the host lifecycle engine.
+ * The host qualifies `type` as `<extension-key>:<local-type>`; extensions must
+ * persist and exchange the qualified identity rather than inventing aliases.
+ */
+export interface GcsExtensionLifecycleEntityDefinition {
+  type: string
+  label: GcsExtensionBilingualLabel
+  transitionMode: GcsLifecycleEntityTransitionMode
+  workflowRequired: boolean
+  workflowPurpose: GcsLifecycleEntityWorkflowPurpose
+  supportsDirectReviews: boolean
+  ownerKind: GcsLifecycleEntityOwnerKind
+  assignmentMode: GcsLifecycleEntityAssignmentMode
+  adapter: {
+    path: string
+  }
+}
+
+export interface GcsResolvedExtensionLifecycleEntityDefinition extends Omit<
+  GcsExtensionLifecycleEntityDefinition,
+  'type' | 'adapter'
+> {
+  localType: string
+  type: GcsQualifiedExtensionEntityType
+  adapter: {
+    path: string
+  }
+}
+
+export interface GcsRegisteredExtensionLifecycleEntityDefinition extends Omit<
+  GcsResolvedExtensionLifecycleEntityDefinition,
+  'adapter'
+> {
+  adapter: {
+    id: string
+  }
+}
+
 export type GcsExtensionHostCapability =
   | 'agency-config'
   | 'stream-config-modal'
@@ -492,6 +537,7 @@ export type GcsExtensionHostCapability =
   | 'extension-secrets'
   | 'extension-create-operation-hooks'
   | 'extension-lifecycle-hooks'
+  | 'lifecycle-entities'
 
 export interface GcsExtensionAdminDefinition {
   agency?: GcsExtensionComponentDefinition
@@ -523,11 +569,12 @@ export interface GcsExtensionDefinition {
   assets?: GcsExtensionAssetDefinition[]
   serverHandlers?: GcsExtensionServerHandlerDefinition[]
   migrations?: GcsExtensionMigrationDefinition[]
+  entities?: GcsExtensionLifecycleEntityDefinition[]
   runtime?: GcsExtensionRuntimeResolverDefinition
   nitroPlugin?: string
 }
 
-export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admin' | 'client' | 'css' | 'i18n' | 'assets' | 'serverHandlers' | 'migrations' | 'runtime' | 'nitroPlugin'> {
+export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admin' | 'client' | 'css' | 'i18n' | 'assets' | 'serverHandlers' | 'migrations' | 'entities' | 'runtime' | 'nitroPlugin'> {
   packageName: string
   rootDir: string
   sdkVersion: string
@@ -562,6 +609,7 @@ export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admi
     key: string
     path: string
   }>
+  entities?: GcsResolvedExtensionLifecycleEntityDefinition[]
   runtime?: GcsExtensionRuntimeResolverDefinition
   nitroPlugin?: string
 }

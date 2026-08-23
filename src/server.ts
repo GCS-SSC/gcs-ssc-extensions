@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { getHeader, isEvent, readBody, type H3Event } from 'h3'
 import { sql, type Generated, type Kysely, type Migration, type Transaction } from 'kysely'
@@ -6,6 +7,9 @@ import type {
   ExtensionScope,
   GcsExtensionCreateOperation,
   GcsExtensionJsonConfig,
+  GcsLifecycleEntityAssignmentMode,
+  GcsLifecycleEntityOwnerKind,
+  GcsQualifiedExtensionEntityType,
   JsonValue
 } from './index'
 
@@ -17,6 +21,214 @@ export type GcsExtensionMigration = Migration
  * Preserves a typed Kysely migration for extension migration discovery.
  */
 export const defineGcsExtensionMigration = <T extends GcsExtensionMigration>(migration: T): T => migration
+
+const EXTENSION_KEY_PATTERN = /^[a-z][a-z0-9-]{0,62}$/
+const LIFECYCLE_ENTITY_LOCAL_TYPE_PATTERN = /^[a-z][a-z0-9-]{0,62}$/
+const SQL_IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]*$/
+
+export interface GcsLifecycleEntityIdentityMigrationOptions {
+  extensionKey: string
+  localType: string
+  table: string
+  schema?: string
+  idColumn?: string
+}
+
+/** Produces the stable host identity for an extension-local entity type. */
+export const qualifyGcsLifecycleEntityType = (
+  extensionKey: string,
+  localType: string
+): GcsQualifiedExtensionEntityType => {
+  if (!EXTENSION_KEY_PATTERN.test(extensionKey)) {
+    throw new Error(`Invalid extension key "${extensionKey}"`)
+  }
+  if (!LIFECYCLE_ENTITY_LOCAL_TYPE_PATTERN.test(localType)) {
+    throw new Error(`Invalid lifecycle entity local type "${localType}"`)
+  }
+  return `${extensionKey}:${localType}`
+}
+
+const assertSqlIdentifier = (value: string, fieldName: string): void => {
+  if (!SQL_IDENTIFIER_PATTERN.test(value)) {
+    throw new Error(`${fieldName} must be a lowercase PostgreSQL identifier`)
+  }
+}
+
+const lifecycleIdentityObjectName = (
+  prefix: 'fk' | 'trigger',
+  qualifiedType: GcsQualifiedExtensionEntityType,
+  table: string
+): string => {
+  const readable = `${qualifiedType}_${table}`.replaceAll(/[^a-z0-9_]/g, '_')
+  const digest = createHash('sha256').update(`${qualifiedType}:${table}:${prefix}`).digest('hex').slice(0, 10)
+  return `gcs_${prefix}_${readable.slice(0, 36)}_${digest}`
+}
+
+/**
+ * Attaches an extension concrete table to the host polymorphic identity.
+ *
+ * The host must register the declaration in `Common_Entity_Type` before the
+ * extension migration runs. The table must already contain a bigint-compatible
+ * identity column whose value may be assigned by the BEFORE INSERT trigger.
+ */
+export const attachGcsLifecycleEntityIdentity = async (
+  db: Kysely<unknown>,
+  options: GcsLifecycleEntityIdentityMigrationOptions
+): Promise<GcsQualifiedExtensionEntityType> => {
+  const schema = options.schema ?? 'extensions'
+  const idColumn = options.idColumn ?? 'id'
+  assertSqlIdentifier(schema, 'schema')
+  assertSqlIdentifier(options.table, 'table')
+  assertSqlIdentifier(idColumn, 'idColumn')
+
+  const qualifiedType = qualifyGcsLifecycleEntityType(options.extensionKey, options.localType)
+  const registered = await sql<{ registered: boolean }>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM "Common_Entity_Type"
+      WHERE egcs_cn_type = ${qualifiedType}
+        AND _deleted = false
+    ) AS registered
+  `.execute(db)
+  if (registered.rows[0]?.registered !== true) {
+    throw new Error(`Lifecycle entity type "${qualifiedType}" must be registered before extension migrations run`)
+  }
+
+  const relation = `${schema}.${options.table}`
+  const foreignKeyName = lifecycleIdentityObjectName('fk', qualifiedType, options.table)
+  const triggerName = lifecycleIdentityObjectName('trigger', qualifiedType, options.table)
+  const existingForeignKey = await sql<{ present: boolean }>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM pg_constraint
+      WHERE conname = ${foreignKeyName}
+        AND conrelid = ${relation}::regclass
+    ) AS present
+  `.execute(db)
+
+  if (existingForeignKey.rows[0]?.present !== true) {
+    await sql`
+      ALTER TABLE ${sql.id(schema, options.table)}
+      ADD CONSTRAINT ${sql.id(foreignKeyName)}
+      FOREIGN KEY (${sql.id(idColumn)})
+      REFERENCES "Common_Entity"(id)
+      ON DELETE RESTRICT
+    `.execute(db)
+  }
+
+  await sql`
+    DROP TRIGGER IF EXISTS ${sql.id(triggerName)}
+    ON ${sql.id(schema, options.table)}
+  `.execute(db)
+  await sql`
+    CREATE TRIGGER ${sql.id(triggerName)}
+    BEFORE INSERT ON ${sql.id(schema, options.table)}
+    FOR EACH ROW EXECUTE FUNCTION register_entity(${sql.lit(qualifiedType)})
+  `.execute(db)
+
+  return qualifiedType
+}
+
+export interface GcsLifecycleEntityTarget {
+  entityType: GcsQualifiedExtensionEntityType
+  entityId: string
+}
+
+export interface GcsLifecycleEntityAdapterContext {
+  event: unknown
+  transaction: Transaction<unknown>
+  actorUserId: string
+}
+
+export interface GcsLifecycleEntityOwnerResolution {
+  owner: GcsLifecycleEntityOwnerKind
+  ownerId: string
+  agencyId: string
+  streamId?: string
+}
+
+export interface GcsLifecycleEntityScopeResolution {
+  agencyId: string
+  streamId?: string
+  scope: ExtensionScope
+}
+
+export interface GcsLifecycleEntityStatusResolution {
+  statusId: string
+  readOnly: boolean
+  terminal: boolean
+  isDraft: boolean
+}
+
+export interface GcsLockedLifecycleEntity {
+  target: GcsLifecycleEntityTarget
+  owner: GcsLifecycleEntityOwnerResolution
+  scope: GcsLifecycleEntityScopeResolution
+  status: GcsLifecycleEntityStatusResolution
+  assignmentMode: GcsLifecycleEntityAssignmentMode
+  /** Adapter-owned locked snapshot used only inside the current transaction. */
+  record: unknown
+}
+
+export interface GcsLifecycleEntityCompletionValidationContext {
+  completionId: string
+  lockedEntity: GcsLockedLifecycleEntity
+}
+
+export interface GcsLifecycleEntityStatusMutationContext {
+  lockedEntity: GcsLockedLifecycleEntity
+  nextStatusId: string
+  runtimeId: string
+}
+
+export interface GcsLifecycleEntityPositiveTerminusContext {
+  completionId: string
+  lockedEntity: GcsLockedLifecycleEntity
+  runtimeId?: string
+}
+
+/**
+ * Host-invoked adapter for an extension lifecycle entity. The host retains
+ * authorization, transaction boundaries, lock ordering, Completion evidence,
+ * Workflow execution, and status-transition history.
+ */
+export interface GcsExtensionLifecycleEntityAdapter {
+  registerIdentity: (
+    context: GcsLifecycleEntityAdapterContext,
+    target: GcsLifecycleEntityTarget
+  ) => Promise<void> | void
+  resolveOwner: (
+    context: GcsLifecycleEntityAdapterContext,
+    target: GcsLifecycleEntityTarget
+  ) => Promise<GcsLifecycleEntityOwnerResolution | null> | GcsLifecycleEntityOwnerResolution | null
+  resolveScope: (
+    context: GcsLifecycleEntityAdapterContext,
+    target: GcsLifecycleEntityTarget
+  ) => Promise<GcsLifecycleEntityScopeResolution | null> | GcsLifecycleEntityScopeResolution | null
+  resolveStatus: (
+    context: GcsLifecycleEntityAdapterContext,
+    target: GcsLifecycleEntityTarget
+  ) => Promise<GcsLifecycleEntityStatusResolution | null> | GcsLifecycleEntityStatusResolution | null
+  lockEntity: (
+    context: GcsLifecycleEntityAdapterContext,
+    target: GcsLifecycleEntityTarget
+  ) => Promise<GcsLockedLifecycleEntity | null>
+  validateCompletion: (
+    context: GcsLifecycleEntityAdapterContext,
+    completion: GcsLifecycleEntityCompletionValidationContext
+  ) => Promise<void> | void
+  mutateStatus: (
+    context: GcsLifecycleEntityAdapterContext,
+    mutation: GcsLifecycleEntityStatusMutationContext
+  ) => Promise<void>
+  onPositiveTerminus?: (
+    context: GcsLifecycleEntityAdapterContext,
+    terminus: GcsLifecycleEntityPositiveTerminusContext
+  ) => Promise<void> | void
+}
+
+/** Preserves a typed lifecycle adapter for generated host registration. */
+export const defineGcsLifecycleEntityAdapter = <T extends GcsExtensionLifecycleEntityAdapter>(adapter: T): T => adapter
 
 export const GCS_EXTENSION_CREATE_OPERATION_HOOK = 'gcs:extension:create-operation'
 export const GCS_EXTENSION_DISABLE_GUARD_HOOK = 'gcs:extension:disable-guard'

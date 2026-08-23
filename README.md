@@ -461,6 +461,60 @@ Custom extension tables should live in the existing `extensions` schema and use 
 
 The host applies pending migrations when an agency enables an extension. The agency extension UI also exposes a manual action for enabled extensions that applies pending migrations after an extension update. Already-recorded migration files are not re-run, so extension updates must add new migration files for new database changes.
 
+### Lifecycle entities
+
+Business entities that participate in host Completion and Workflow orchestration use the optional `entities` contribution and the `lifecycle-entities` capability:
+
+```ts
+export default defineGcsExtension({
+  key: 'gcs-example',
+  sdkVersion: '^0.1.0',
+  requiredHostCapabilities: ['lifecycle-entities', 'migrations'],
+  name: { en: 'Example', fr: 'Exemple' },
+  entities: [{
+    type: 'service-case',
+    label: { en: 'Service case', fr: 'Dossier de service' },
+    transitionMode: 'completion_workflow',
+    workflowRequired: false,
+    workflowPurpose: 'standard',
+    supportsDirectReviews: true,
+    ownerKind: 'agreement',
+    assignmentMode: 'independent',
+    adapter: { path: './server/service-case-adapter.ts' }
+  }],
+  migrations: [{ path: './server/migrations/0001_service_case.ts' }]
+})
+```
+
+The host qualifies the local type as `gcs-example:service-case`. Treat that qualified value as permanent. Changing the extension key or local type is a persisted identity change, not a display-name edit. The host validates and registers the declaration before running the extension migration; duplicate, unavailable, or incompatible declarations are rejected.
+
+Create the concrete table with a bigint identity column, then attach the host identity after the table exists:
+
+```ts
+import {
+  attachGcsLifecycleEntityIdentity,
+  defineGcsExtensionMigration
+} from '@gcs-ssc/extensions/server'
+
+export default defineGcsExtensionMigration({
+  async up(db) {
+    await db.schema
+      .createTable('extensions.gcs_example_service_case')
+      .addColumn('id', 'bigint', col => col.primaryKey())
+      .addColumn('_deleted', 'boolean', col => col.notNull().defaultTo(false))
+      .execute()
+
+    await attachGcsLifecycleEntityIdentity(db, {
+      extensionKey: 'gcs-example',
+      localType: 'service-case',
+      table: 'gcs_example_service_case'
+    })
+  }
+})
+```
+
+The server adapter is defined with `defineGcsLifecycleEntityAdapter(...)`. It implements identity registration, owner/scope/status resolution, canonical locking, Completion validation, and status mutation; `onPositiveTerminus` is optional. The adapter exposes domain facts inside a host transaction. It never authorizes a request or creates host Completion, Workflow, Runtime, Approval, Review, status-history, or assignment evidence itself.
+
 ## Key-Value Storage
 
 The host-managed `extensions.kv_entry` table remains available for entity-associated extension data. The SDK server entry point exposes helpers:

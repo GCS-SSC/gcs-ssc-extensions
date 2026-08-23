@@ -11,6 +11,7 @@ import {
 } from 'kysely'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  attachGcsLifecycleEntityIdentity,
   createGcsExtensionRouteContext,
   GCS_EXTENSION_AGREEMENT_DELETE_GUARD_HOOK,
   GCS_EXTENSION_AGREEMENT_LIFECYCLE_LOCK_HOOK,
@@ -22,6 +23,7 @@ import {
   getReviewSchemaEffectiveContent,
   lockGcsExtensionLifecycleScope,
   readGcsExtensionRequestBody,
+  qualifyGcsLifecycleEntityType,
   registerGcsExtensionAgreementDeleteGuard,
   registerGcsExtensionAgreementLifecycleLock,
   registerGcsExtensionAgreementStreamChangeGuard,
@@ -88,6 +90,61 @@ const createTestRouteEvent = (
 }
 
 describe('extension SDK server helpers', () => {
+  it('qualifies lifecycle identity types and rejects unsafe identity parts', () => {
+    expect(qualifyGcsLifecycleEntityType('sample-extension', 'service-case')).toBe('sample-extension:service-case')
+    expect(() => qualifyGcsLifecycleEntityType('Sample', 'service-case')).toThrow('Invalid extension key')
+    expect(() => qualifyGcsLifecycleEntityType('sample-extension', 'service:case')).toThrow('Invalid lifecycle entity')
+  })
+
+  it('preflights registered lifecycle types before attaching concrete identity integrity', async () => {
+    const driver = new DummyDriver()
+    const db = createSecretTestDb(driver)
+    const executeQuery = vi.fn()
+      .mockResolvedValueOnce({ rows: [{ registered: true }] })
+      .mockResolvedValueOnce({ rows: [{ present: false }] })
+      .mockResolvedValue({ rows: [] })
+    vi.spyOn(driver, 'acquireConnection').mockResolvedValue({
+      executeQuery,
+      streamQuery: vi.fn()
+    } as never)
+
+    try {
+      await expect(attachGcsLifecycleEntityIdentity(db as unknown as Kysely<unknown>, {
+        extensionKey: 'sample-extension',
+        localType: 'service-case',
+        table: 'sample_service_case'
+      })).resolves.toBe('sample-extension:service-case')
+
+      const queries = executeQuery.mock.calls.map(([query]) => query.sql as string)
+      expect(queries[0]).toContain('FROM "Common_Entity_Type"')
+      expect(queries[2]).toContain('REFERENCES "Common_Entity"(id)')
+      expect(queries[4]).toContain('register_entity(\'sample-extension:service-case\')')
+    } finally {
+      await db.destroy()
+    }
+  })
+
+  it('rejects an unregistered lifecycle type before mutating its concrete table', async () => {
+    const driver = new DummyDriver()
+    const db = createSecretTestDb(driver)
+    const executeQuery = vi.fn().mockResolvedValue({ rows: [{ registered: false }] })
+    vi.spyOn(driver, 'acquireConnection').mockResolvedValue({
+      executeQuery,
+      streamQuery: vi.fn()
+    } as never)
+
+    try {
+      await expect(attachGcsLifecycleEntityIdentity(db as unknown as Kysely<unknown>, {
+        extensionKey: 'sample-extension',
+        localType: 'service-case',
+        table: 'sample_service_case'
+      })).rejects.toThrow('must be registered before extension migrations run')
+      expect(executeQuery).toHaveBeenCalledOnce()
+    } finally {
+      await db.destroy()
+    }
+  })
+
   it('reads assessment content from an exact canonical publication definition', () => {
     expect(getReviewSchemaEffectiveContent({
       definition: {
