@@ -58,7 +58,7 @@ const resolveItemValue = (item: unknown): string => {
  * Creates a lightweight interactive stub matching the selected host component's essential test behavior.
  */
 const createExtensionTestComponent = (name: GcsExtensionHostComponentName): Component => {
-  if (name === 'USelect' || name === 'USelectMenu') {
+  if (name === 'CommonStatusSelect' || name === 'USelect' || name === 'USelectMenu') {
     return defineComponent({
       name,
       inheritAttrs: false,
@@ -204,6 +204,7 @@ const hostComponentNames: GcsExtensionHostComponentName[] = [
   'CommonSaveButton',
   'CommonSection',
   'CommonStatusBadge',
+  'CommonStatusSelect',
   'UAccordion',
   'UAlert',
   'UBadge',

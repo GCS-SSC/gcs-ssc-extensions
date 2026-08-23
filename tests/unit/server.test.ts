@@ -16,12 +16,17 @@ import {
   GCS_EXTENSION_AGREEMENT_LIFECYCLE_LOCK_HOOK,
   GCS_EXTENSION_AGREEMENT_STREAM_CHANGE_GUARD_HOOK,
   GCS_EXTENSION_DISABLE_GUARD_HOOK,
+  GCS_EXTENSION_CONFIGURATION_GUARD_HOOK,
+  GCS_EXTENSION_STATUS_REFERENCE_GUARD_HOOK,
   getGcsExtensionRequestHeader,
+  getReviewSchemaEffectiveContent,
   lockGcsExtensionLifecycleScope,
   readGcsExtensionRequestBody,
   registerGcsExtensionAgreementDeleteGuard,
   registerGcsExtensionAgreementLifecycleLock,
   registerGcsExtensionAgreementStreamChangeGuard,
+  registerGcsExtensionConfigurationGuard,
+  registerGcsExtensionStatusReferenceGuard,
   registerGcsExtensionDisableGuard,
   resolveExtensionAgreementByNumber,
   resolveExtensionStreamContext,
@@ -83,6 +88,33 @@ const createTestRouteEvent = (
 }
 
 describe('extension SDK server helpers', () => {
+  it('reads assessment content from an exact canonical publication definition', () => {
+    expect(getReviewSchemaEffectiveContent({
+      definition: {
+        scoringMatrix: { strategy: 'weighted' },
+        assessmentSchema: { sections: [{ key: 'eligibility' }] }
+      }
+    })).toEqual({
+      scoringMatrix: { strategy: 'weighted' },
+      assessmentSchema: { sections: [{ key: 'eligibility' }] }
+    })
+  })
+
+  it('falls back safely when a canonical definition is null or malformed', () => {
+    expect(getReviewSchemaEffectiveContent({
+      definition: ['invalid'],
+      egcs_cn_scoringmatrix: { legacy: 'matrix' },
+      egcs_cn_assessmentschema: { legacy: 'schema' }
+    })).toEqual({
+      scoringMatrix: { legacy: 'matrix' },
+      assessmentSchema: { legacy: 'schema' }
+    })
+    expect(getReviewSchemaEffectiveContent({ definition: null })).toEqual({
+      scoringMatrix: null,
+      assessmentSchema: null
+    })
+  })
+
   it('requires an active owning agency when resolving an extension stream', async () => {
     const query = {
       innerJoin: vi.fn().mockReturnThis(),
@@ -365,6 +397,78 @@ describe('extension SDK server helpers', () => {
     await registeredHook?.(payload)
 
     expect(registeredName).toBe(GCS_EXTENSION_AGREEMENT_DELETE_GUARD_HOOK)
+    expect(guard).toHaveBeenCalledWith({
+      ...payload,
+      extensionKey: 'gcs-test'
+    })
+  })
+
+  it('injects the registered extension key into status reference guards', async () => {
+    let registeredName = ''
+    let registeredHook: ((payload: {
+      event: unknown
+      db: Transaction<unknown>
+      agencyId: string
+      statusId: string
+    }) => Promise<void>) | undefined
+    const guard = vi.fn()
+    registerGcsExtensionStatusReferenceGuard('gcs-test', guard, {
+      hooks: {
+        hook: (name: string, hook: typeof registeredHook) => {
+          registeredName = name
+          registeredHook = hook
+        }
+      }
+    } as never)
+    const payload = {
+      event: {},
+      db: {} as Transaction<unknown>,
+      agencyId: 'agency-1',
+      statusId: 'status-1'
+    }
+
+    await registeredHook?.(payload)
+
+    expect(registeredName).toBe(GCS_EXTENSION_STATUS_REFERENCE_GUARD_HOOK)
+    expect(guard).toHaveBeenCalledWith({
+      ...payload,
+      extensionKey: 'gcs-test'
+    })
+  })
+
+  it('injects the registered extension key while preserving the configured extension target', async () => {
+    let registeredName = ''
+    let registeredHook: ((payload: {
+      targetExtensionKey: string
+      event: unknown
+      db: Transaction<unknown>
+      scope: 'agency'
+      agencyId: string
+      enabled: boolean
+      config: { submissionStatusId: string }
+    }) => Promise<void>) | undefined
+    const guard = vi.fn()
+    registerGcsExtensionConfigurationGuard('gcs-test', guard, {
+      hooks: {
+        hook: (name: string, hook: typeof registeredHook) => {
+          registeredName = name
+          registeredHook = hook
+        }
+      }
+    } as never)
+    const payload = {
+      targetExtensionKey: 'gcs-test',
+      event: {},
+      db: {} as Transaction<unknown>,
+      scope: 'agency' as const,
+      agencyId: 'agency-1',
+      enabled: true,
+      config: { submissionStatusId: 'status-1' }
+    }
+
+    await registeredHook?.(payload)
+
+    expect(registeredName).toBe(GCS_EXTENSION_CONFIGURATION_GUARD_HOOK)
     expect(guard).toHaveBeenCalledWith({
       ...payload,
       extensionKey: 'gcs-test'

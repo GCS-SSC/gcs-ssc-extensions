@@ -28,6 +28,10 @@ export const GCS_EXTENSION_AGREEMENT_PAYMENT_MUTATION_GUARD_HOOK
   = 'gcs:extension:agreement-payment-mutation-guard'
 export const GCS_EXTENSION_AGREEMENT_DELETE_GUARD_HOOK
   = 'gcs:extension:agreement-delete-guard'
+export const GCS_EXTENSION_STATUS_REFERENCE_GUARD_HOOK
+  = 'gcs:extension:status-reference-guard'
+export const GCS_EXTENSION_CONFIGURATION_GUARD_HOOK
+  = 'gcs:extension:configuration-guard'
 
 export type GcsExtensionDisableScope = 'agency' | 'stream'
 
@@ -133,8 +137,8 @@ export interface GcsExtensionAgreementPaymentMutationGuardContext {
   agreementId: string
   paymentId: string
   paymentLineId?: string
-  currentStatus?: string
-  nextStatus?: string
+  currentStatusId?: string
+  nextStatusId?: string
   changes?: Record<string, unknown>
 }
 
@@ -162,6 +166,44 @@ export type GcsExtensionAgreementDeleteGuardHandler = (
 
 export type GcsExtensionAgreementDeleteGuardHookPayload = Omit<
   GcsExtensionAgreementDeleteGuardContext,
+  'extensionKey'
+>
+
+export interface GcsExtensionStatusReferenceGuardContext {
+  extensionKey: string
+  event: unknown
+  db: Transaction<unknown>
+  agencyId: string
+  statusId: string
+}
+
+export type GcsExtensionStatusReferenceGuardHandler = (
+  context: GcsExtensionStatusReferenceGuardContext
+) => Promise<void> | void
+
+export type GcsExtensionStatusReferenceGuardHookPayload = Omit<
+  GcsExtensionStatusReferenceGuardContext,
+  'extensionKey'
+>
+
+export interface GcsExtensionConfigurationGuardContext {
+  extensionKey: string
+  targetExtensionKey: string
+  event: unknown
+  db: Transaction<unknown>
+  scope: GcsExtensionDisableScope
+  agencyId: string
+  streamId?: string
+  enabled: boolean
+  config?: GcsExtensionJsonConfig
+}
+
+export type GcsExtensionConfigurationGuardHandler = (
+  context: GcsExtensionConfigurationGuardContext
+) => Promise<void> | void
+
+export type GcsExtensionConfigurationGuardHookPayload = Omit<
+  GcsExtensionConfigurationGuardContext,
   'extensionKey'
 >
 
@@ -239,6 +281,14 @@ type NitroHookRegistrar = {
       (
         name: typeof GCS_EXTENSION_AGREEMENT_DELETE_GUARD_HOOK,
         handler: (payload: GcsExtensionAgreementDeleteGuardHookPayload) => Promise<void> | void
+      ): void
+      (
+        name: typeof GCS_EXTENSION_STATUS_REFERENCE_GUARD_HOOK,
+        handler: (payload: GcsExtensionStatusReferenceGuardHookPayload) => Promise<void> | void
+      ): void
+      (
+        name: typeof GCS_EXTENSION_CONFIGURATION_GUARD_HOOK,
+        handler: (payload: GcsExtensionConfigurationGuardHookPayload) => Promise<void> | void
       ): void
       (
       name: string,
@@ -696,6 +746,54 @@ export const registerGcsExtensionAgreementDeleteGuard = (
   })
 }
 
+/**
+ * Registers an extension-owned guard for Agency status deletion reference checks.
+ */
+export const registerGcsExtensionStatusReferenceGuard = (
+  extensionKey: string,
+  handler: GcsExtensionStatusReferenceGuardHandler,
+  nitroApp?: NitroHookRegistrar
+) => {
+  const resolvedNitroApp = nitroApp ?? (globalThis as typeof globalThis & {
+    useNitroApp?: () => NitroHookRegistrar
+  }).useNitroApp?.()
+
+  if (!resolvedNitroApp) {
+    throw new Error('GCS extension status reference guards must be registered from a Nitro plugin.')
+  }
+
+  resolvedNitroApp.hooks.hook(GCS_EXTENSION_STATUS_REFERENCE_GUARD_HOOK, async payload => {
+    await handler({
+      ...payload,
+      extensionKey
+    })
+  })
+}
+
+/**
+ * Registers an extension-owned validator for host-managed Agency or stream configuration writes.
+ */
+export const registerGcsExtensionConfigurationGuard = (
+  extensionKey: string,
+  handler: GcsExtensionConfigurationGuardHandler,
+  nitroApp?: NitroHookRegistrar
+) => {
+  const resolvedNitroApp = nitroApp ?? (globalThis as typeof globalThis & {
+    useNitroApp?: () => NitroHookRegistrar
+  }).useNitroApp?.()
+
+  if (!resolvedNitroApp) {
+    throw new Error('GCS extension configuration guards must be registered from a Nitro plugin.')
+  }
+
+  resolvedNitroApp.hooks.hook(GCS_EXTENSION_CONFIGURATION_GUARD_HOOK, async payload => {
+    await handler({
+      ...payload,
+      extensionKey
+    })
+  })
+}
+
 export interface ExtensionAgreementLookupDatabase {
   Funding_Case_Agreement_Profile: {
     id: unknown
@@ -1001,10 +1099,9 @@ export interface ExtensionStreamContextDatabaseClient {
 }
 
 export type ReviewSchemaContentSource = {
+  definition?: JsonValue | null
   egcs_cn_scoringmatrix?: JsonValue | null
   egcs_cn_assessmentschema?: JsonValue | null
-  egcs_cn_publishedscoringmatrix?: JsonValue | null
-  egcs_cn_publishedassessmentschema?: JsonValue | null
 }
 
 export type ReviewSchemaContent = {
@@ -1143,12 +1240,17 @@ export const AssessmentDefinitionSchema = z.object({
 export type AssessmentDefinition = z.infer<typeof AssessmentDefinitionSchema>
 
 /**
- * Selects editable review-schema content first, falling back to the published snapshots.
+ * Resolves review-schema content from an exact canonical publication definition.
  */
-export const getReviewSchemaEffectiveContent = (schema: ReviewSchemaContentSource): ReviewSchemaContent => ({
-  scoringMatrix: schema.egcs_cn_scoringmatrix ?? schema.egcs_cn_publishedscoringmatrix ?? null,
-  assessmentSchema: schema.egcs_cn_assessmentschema ?? schema.egcs_cn_publishedassessmentschema ?? null
-})
+export const getReviewSchemaEffectiveContent = (schema: ReviewSchemaContentSource): ReviewSchemaContent => {
+  const definition = schema.definition && typeof schema.definition === 'object' && !Array.isArray(schema.definition)
+    ? schema.definition as Record<string, JsonValue>
+    : null
+  return {
+    scoringMatrix: definition?.scoringMatrix ?? schema.egcs_cn_scoringmatrix ?? null,
+    assessmentSchema: definition?.assessmentSchema ?? schema.egcs_cn_assessmentschema ?? null
+  }
+}
 
 /**
  * Resolves the host stream, transfer payment profile, agency, and extension scope for an extension route.

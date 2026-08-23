@@ -86,6 +86,7 @@ export type GcsExtensionHostComponentName =
   | 'CommonSaveButton'
   | 'CommonSection'
   | 'CommonStatusBadge'
+  | 'CommonStatusSelect'
   | 'UAccordion'
   | 'UAlert'
   | 'UBadge'
@@ -169,6 +170,7 @@ export const ExtensionRouteTabs = createExtensionHostComponent('CommonRouteTabs'
 export const ExtensionSaveButton = createExtensionHostComponent('CommonSaveButton')
 export const ExtensionSection = createExtensionHostComponent('CommonSection')
 export const ExtensionStatusBadge = createExtensionHostComponent('CommonStatusBadge')
+export const ExtensionStatusSelect = createExtensionHostComponent('CommonStatusSelect')
 export const ExtensionTextarea = createExtensionHostComponent('UTextarea')
 
 export const ExtensionAccordion = createExtensionHostComponent('UAccordion')

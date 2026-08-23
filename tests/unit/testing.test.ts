@@ -10,6 +10,7 @@ describe('extension SDK testing runtime', () => {
     expect(runtime.components.UInputTags).toBeTruthy()
     expect(runtime.components.CommonSaveButton).toBeTruthy()
     expect(runtime.components.CommonAssessmentSchemaAccordionSection).toBeTruthy()
+    expect(runtime.components.CommonStatusSelect).toBeTruthy()
     expect(h(runtime.components.UTable)).toBeTruthy()
   })
 })
