@@ -78,6 +78,8 @@ The host installs the concrete UI runtime with `setExtensionUiRuntime`. Extensio
 
 Use `useExtensionApi(extensionKey)` for extension-owned routes and `useHostApi()` for stable host API routes. Extensions that call `useHostApi()` must declare `host-api-client` in `requiredHostCapabilities`. Do not call `fetch` or build `/api/...` URLs directly in extension components.
 
+Lifecycle entity UI may use `ExtensionCompletionSection` and `ExtensionWorkflowSection` for the standard host presentation. Extensions that need a custom presentation use `useHostLifecycleApi()`, whose typed methods cover Completion state and execution, eligible standard Workflow discovery, and explicit Workflow start. The host still resolves scope, assignment, status eligibility, publication state, and concurrency; the extension supplies only the exact qualified target and, for an explicit start, the selected `workflowSetupId`.
+
 ```ts
 import { useHostApi } from '@gcs-ssc/extensions/ui'
 
@@ -474,9 +476,9 @@ export default defineGcsExtension({
   entities: [{
     type: 'service-case',
     label: { en: 'Service case', fr: 'Dossier de service' },
-    transitionMode: 'completion_workflow',
-    workflowRequired: false,
-    workflowPurpose: 'standard',
+    completion: 'supported',
+    approvalSubmission: 'on_completion',
+    standardWorkflow: 'explicit',
     supportsDirectReviews: true,
     ownerKind: 'agreement',
     assignmentMode: 'independent',
@@ -487,6 +489,8 @@ export default defineGcsExtension({
 ```
 
 The host qualifies the local type as `gcs-example:service-case`. Treat that qualified value as permanent. Changing the extension key or local type is a persisted identity change, not a display-name edit. The host validates and registers the declaration before running the extension migration; duplicate, unavailable, or incompatible declarations are rejected.
+
+The three lifecycle capabilities are orthogonal. `completion: 'supported'` exposes Completion, while `approvalSubmission: 'on_completion'` asks the host to select and start an eligible approval-submission Workflow atomically when Completion occurs. `approvalSubmission: 'none'` permits Completion without that orchestration. `standardWorkflow: 'explicit'` exposes eligible standard Workflows for deliberate user selection and never starts one as a Completion side effect.
 
 Create the concrete table with a bigint identity column, then attach the host identity after the table exists:
 

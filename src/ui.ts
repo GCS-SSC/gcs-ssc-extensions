@@ -81,12 +81,14 @@ export interface GcsExtensionFetchResult<T> {
 export type GcsExtensionHostComponentName =
   | 'CommonEntityEditorWorkspace'
   | 'CommonAssessmentSchemaAccordionSection'
+  | 'CommonCompletionSection'
   | 'CommonResourceLayoutCard'
   | 'CommonRouteTabs'
   | 'CommonSaveButton'
   | 'CommonSection'
   | 'CommonStatusBadge'
   | 'CommonStatusSelect'
+  | 'CommonWorkflowSection'
   | 'UAccordion'
   | 'UAlert'
   | 'UBadge'
@@ -154,7 +156,9 @@ export const getExtensionUiRuntime = (): GcsExtensionUiRuntime => {
   return runtime
 }
 
-const createExtensionHostComponent = (name: GcsExtensionHostComponentName): Component =>
+const createExtensionHostComponent = <Props extends object = Record<string, unknown>>(
+  name: GcsExtensionHostComponentName
+): Component<Props> =>
   defineComponent({
     name: `Gcs${name}`,
     inheritAttrs: false,
@@ -165,12 +169,36 @@ const createExtensionHostComponent = (name: GcsExtensionHostComponentName): Comp
 
 export const ExtensionEntityEditorWorkspace = createExtensionHostComponent('CommonEntityEditorWorkspace')
 export const ExtensionAssessmentSchemaAccordionSection = createExtensionHostComponent('CommonAssessmentSchemaAccordionSection')
+export interface GcsExtensionCompletionSectionProps {
+  entityType: string
+  entityId: string
+  completePayload?: JsonValue | Record<string, unknown>
+  titleKey: string
+  descriptionKey: string
+  statusCompleteKey: string
+  statusLockedKey: string
+  commentPlaceholderKey: string
+  completeActionKey: string
+  completedSuccessKey: string
+  confirmationMessageKey?: string
+  isLocked?: boolean
+  hideTitle?: boolean
+  showDivider?: boolean
+}
+export const ExtensionCompletionSection = createExtensionHostComponent<GcsExtensionCompletionSectionProps>('CommonCompletionSection')
 export const ExtensionResourceLayoutCard = createExtensionHostComponent('CommonResourceLayoutCard')
 export const ExtensionRouteTabs = createExtensionHostComponent('CommonRouteTabs')
 export const ExtensionSaveButton = createExtensionHostComponent('CommonSaveButton')
 export const ExtensionSection = createExtensionHostComponent('CommonSection')
 export const ExtensionStatusBadge = createExtensionHostComponent('CommonStatusBadge')
 export const ExtensionStatusSelect = createExtensionHostComponent('CommonStatusSelect')
+export interface GcsExtensionWorkflowSectionProps {
+  entityType: string
+  entityId: string
+  canEdit?: boolean
+  refreshKey?: number
+}
+export const ExtensionWorkflowSection = createExtensionHostComponent<GcsExtensionWorkflowSectionProps>('CommonWorkflowSection')
 export const ExtensionTextarea = createExtensionHostComponent('UTextarea')
 
 export const ExtensionAccordion = createExtensionHostComponent('UAccordion')
@@ -242,6 +270,66 @@ export interface GcsExtensionApiClientOptions {
 export interface GcsExtensionRequestOptions extends Omit<RequestInit, 'body'> {
   query?: Record<string, string | number | boolean | null | undefined>
   body?: BodyInit | JsonValue | Record<string, unknown>
+}
+
+export type GcsExtensionRuntimeState =
+  | 'pending'
+  | 'active'
+  | 'awaiting_action'
+  | 'paused'
+  | 'succeeded'
+  | 'approved'
+  | 'unsuccessful'
+  | 'denied'
+  | 'failed'
+  | 'cancelled'
+
+export interface GcsExtensionCompletionRuntimeResponse {
+  item: {
+    id: string
+    egcs_cn_comments: string
+    egcs_cn_user: string
+    egcs_cn_user_name: string
+    egcs_cn_completedat: string
+    egcs_cn_disposition: 'not_applicable' | 'no_workflow' | 'workflow_started'
+  } | null
+  can_complete: boolean
+  blocker?: string | null
+}
+
+export interface GcsExtensionCompleteEntityInput {
+  entityType: string
+  entityId: string
+  comments?: string | null
+  payload?: JsonValue | Record<string, unknown>
+}
+
+export interface GcsExtensionAvailableStandardWorkflow {
+  workflowSetupId: string
+  name_en: string
+  name_fr: string
+  description_en: string
+  description_fr: string
+  version: number
+  definition: JsonValue
+  eligible: boolean
+}
+
+export interface GcsExtensionAvailableStandardWorkflowsResponse {
+  items: GcsExtensionAvailableStandardWorkflow[]
+}
+
+export interface GcsExtensionStartStandardWorkflowInput {
+  entityType: string
+  entityId: string
+  workflowSetupId: string
+}
+
+export interface GcsExtensionWorkflowRuntimeSummary {
+  runtimeId: string
+  runtimeState: GcsExtensionRuntimeState
+  attempt: number
+  previousRuntimeId: string | null
 }
 
 /**
@@ -405,6 +493,28 @@ export const createHostApiClient = (options: { fetch?: typeof fetch } = {}) => {
       request<T>(path, { ...requestOptions, method: 'DELETE' })
   }
 }
+
+/** Creates typed host lifecycle helpers for extension-owned entities. */
+export const createHostLifecycleApiClient = (options: { fetch?: typeof fetch } = {}) => {
+  const client = createHostApiClient(options)
+  return {
+    getCompletion: (entityType: string, entityId: string) =>
+      client.get<GcsExtensionCompletionRuntimeResponse>('/api/completions/runtime', {
+        query: { entityType, entityId }
+      }),
+    complete: (input: GcsExtensionCompleteEntityInput) =>
+      client.post<GcsExtensionCompletionRuntimeResponse>('/api/completions/complete', { ...input }),
+    getAvailableStandardWorkflows: (entityType: string, entityId: string) =>
+      client.get<GcsExtensionAvailableStandardWorkflowsResponse>('/api/workflows/available', {
+        query: { entityType, entityId }
+      }),
+    startStandardWorkflow: (input: GcsExtensionStartStandardWorkflowInput) =>
+      client.post<GcsExtensionWorkflowRuntimeSummary>('/api/workflows/start', { ...input, purpose: 'standard' })
+  }
+}
+
+/** Creates typed host lifecycle helpers using the global fetch implementation. */
+export const useHostLifecycleApi = () => createHostLifecycleApiClient()
 
 /**
  * Creates a host API client using the global fetch implementation.

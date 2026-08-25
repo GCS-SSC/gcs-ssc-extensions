@@ -1,6 +1,6 @@
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.1.0'
+export const GCS_EXTENSION_SDK_VERSION = '0.2.0'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -472,8 +472,9 @@ export interface GcsExtensionMigrationDefinition {
   path: string
 }
 
-export type GcsLifecycleEntityTransitionMode = 'workflow_only' | 'completion_workflow'
-export type GcsLifecycleEntityWorkflowPurpose = 'standard' | 'approval_submission' | 'close_out'
+export type GcsLifecycleEntityCompletionCapability = 'supported' | 'none'
+export type GcsLifecycleEntityApprovalSubmissionCapability = 'on_completion' | 'none'
+export type GcsLifecycleEntityStandardWorkflowCapability = 'explicit'
 export type GcsLifecycleEntityOwnerKind = 'agreement' | 'proponent'
 export type GcsLifecycleEntityAssignmentMode = 'independent' | 'inherited'
 export type GcsQualifiedExtensionEntityType = `${string}:${string}`
@@ -486,9 +487,9 @@ export type GcsQualifiedExtensionEntityType = `${string}:${string}`
 export interface GcsExtensionLifecycleEntityDefinition {
   type: string
   label: GcsExtensionBilingualLabel
-  transitionMode: GcsLifecycleEntityTransitionMode
-  workflowRequired: boolean
-  workflowPurpose: GcsLifecycleEntityWorkflowPurpose
+  completion: GcsLifecycleEntityCompletionCapability
+  approvalSubmission: GcsLifecycleEntityApprovalSubmissionCapability
+  standardWorkflow: GcsLifecycleEntityStandardWorkflowCapability
   supportsDirectReviews: boolean
   ownerKind: GcsLifecycleEntityOwnerKind
   assignmentMode: GcsLifecycleEntityAssignmentMode

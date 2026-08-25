@@ -8,7 +8,10 @@ import {
   clearExtensionUiRuntime,
   createExtensionApiClient,
   createHostApiClient,
+  createHostLifecycleApiClient,
+  ExtensionCompletionSection,
   ExtensionStatusSelect,
+  ExtensionWorkflowSection,
   setExtensionUiRuntime,
   useExtensionConfirmDialog,
   useExtensionFetch,
@@ -56,6 +59,32 @@ describe('extension SDK API clients', () => {
     await expect(client.get('/api/transfer-payments/1/outcomes')).resolves.toEqual({ items: [{ id: '1' }] })
     expect(vi.mocked(fetcher).mock.calls[0]?.[0]).toBe('/api/transfer-payments/1/outcomes')
   })
+
+  it('exposes typed host lifecycle requests without extension-owned URL assembly', async () => {
+    const fetcher = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ items: [] })
+    })) as unknown as typeof fetch
+    const lifecycle = createHostLifecycleApiClient({ fetch: fetcher })
+
+    await lifecycle.getAvailableStandardWorkflows('sample:case', '42')
+    await lifecycle.startStandardWorkflow({
+      entityType: 'sample:case',
+      entityId: '42',
+      workflowSetupId: 'setup-1'
+    })
+
+    expect(vi.mocked(fetcher).mock.calls[0]?.[0])
+      .toBe('/api/workflows/available?entityType=sample%3Acase&entityId=42')
+    expect(vi.mocked(fetcher).mock.calls[1]?.[0]).toBe('/api/workflows/start')
+    expect(JSON.parse(String((vi.mocked(fetcher).mock.calls[1]?.[1] as RequestInit).body))).toEqual({
+      entityType: 'sample:case',
+      entityId: '42',
+      workflowSetupId: 'setup-1',
+      purpose: 'standard'
+    })
+  })
 })
 
 describe('extension SDK UI runtime adapters', () => {
@@ -64,6 +93,10 @@ describe('extension SDK UI runtime adapters', () => {
     setExtensionUiRuntime(runtime)
 
     expect(ExtensionStatusSelect).toBeTruthy()
+    expect(ExtensionCompletionSection).toBeTruthy()
+    expect(ExtensionWorkflowSection).toBeTruthy()
+    expect(runtime.components.CommonCompletionSection).toBeTruthy()
+    expect(runtime.components.CommonWorkflowSection).toBeTruthy()
     expect(runtime.components.CommonStatusSelect).toBeTruthy()
 
     clearExtensionUiRuntime()
