@@ -11,7 +11,7 @@ Use the published or tagged SDK dependency from standalone extension packages:
 ```json
 {
   "dependencies": {
-    "@gcs-ssc/extensions": "^0.1.0"
+    "@gcs-ssc/extensions": "^0.2.1"
   }
 }
 ```
@@ -87,6 +87,71 @@ const hostApi = useHostApi()
 const response = await hostApi.get<{ items: unknown[] }>('/api/transfer-payments/1/outcomes')
 ```
 
+## File storage providers
+
+An extension may contribute one object-storage adapter through `fileStorageProvider`. It must declare the `file-storage-provider` host capability. The extension key is the permanent provider ID recorded with each stored object; changing it creates a different provider and makes existing objects unreachable through the old identity.
+
+```ts
+import { defineGcsExtension } from '@gcs-ssc/extensions'
+
+export default defineGcsExtension({
+  key: 'gcs-storage-example',
+  sdkVersion: '^0.2.1',
+  requiredHostCapabilities: ['file-storage-provider'],
+  name: { en: 'Example storage', fr: 'Stockage exemple' },
+  fileStorageProvider: {
+    adapter: { path: './server/storage-adapter.ts' }
+  }
+})
+```
+
+The host owns attachment records, business context, filenames, MIME declarations, attachment types, authorization, lifecycle checks, upload/download APIs, and provider selection. The adapter owns only object I/O. `writeObject` receives a collision-resistant opaque object name, bytes, MIME type, agency, purpose, optional explicit business target, non-secret agency configuration, a server-only agency/provider-scoped `secrets.get(key)` reader, and optional provider metadata. It returns a stable provider object ID and an opaque JSON locator. `readObject` and idempotent `deleteObject` receive that recorded identity and the same scoped secret reader. Locators and the secret reader are server-only and must never enter client manifests or component props.
+
+```ts
+import { defineGcsFileStorageProviderAdapter } from '@gcs-ssc/extensions/server'
+
+export default defineGcsFileStorageProviderAdapter({
+  async writeObject(input) {
+    // Persist input.bytes under input.objectName.
+    return {
+      objectId: input.objectName,
+      locator: { key: input.objectName }
+    }
+  },
+  async readObject(context) {
+    return { bytes: new Uint8Array(), contentType: 'application/octet-stream' }
+  },
+  async deleteObject(context) {
+    // Treat an already absent object as success.
+  }
+})
+```
+
+Provider configuration is ordinary JSON-safe agency configuration. Credentials and tokens use the encrypted extension-secret APIs and must not be placed in configuration, locators, metadata, or client manifests.
+
+### Optional provider metadata
+
+A provider may declare a package-contained Vue form and server validator/normalizer. The declaration specifies a positive integer `contractVersion`, whether normalized JSON is persisted by the `host` or `provider`, and whether it is `upload-only` or `editable`.
+
+```ts
+fileStorageProvider: {
+  adapter: { path: './server/storage-adapter.ts' },
+  metadata: {
+    component: { path: './components/StorageMetadata.vue' },
+    validator: { path: './server/storage-metadata.ts' },
+    persistence: 'host',
+    mutability: 'editable',
+    contractVersion: 1
+  }
+}
+```
+
+The validator is defined with `defineGcsFileStorageMetadataValidator`. It receives JSON object metadata plus create/update mode, agency, purpose, target, contract version, and agency configuration, and returns normalized JSON. Provider-managed editable metadata additionally requires `readProviderMetadata` and `updateProviderMetadata` on a `GcsFileStorageProviderManagedMetadataAdapter`.
+
+The Vue form implements `GcsFileStorageMetadataComponentProps` and emits `update:modelValue` with a JSON object. Its props include create/update mode, the typed target context, `disabled`, and `readOnly`. Provider metadata is namespaced to its provider and size-bounded by the host. It cannot replace or override attachment type, business target, agency ownership, filename, MIME type, or authorization fields.
+
+All adapter, validator, and component paths are resolved inside the extension package. Adapter and validator modules are registered only in the server registry. Only safe metadata presentation details and the generated component identity may enter the browser registry.
+
 ## Entity Tabs And RBAC
 
 ## Stream Configuration Components
@@ -121,7 +186,7 @@ Extensions can add tabs to funding case agreements, proponents, claims, and moni
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.1.0',
+  sdkVersion: '^0.2.0',
   requiredHostCapabilities: ['server-handlers', 'server-handler-rbac'],
   name: { en: 'Example', fr: 'Exemple' },
   client: {
@@ -148,7 +213,7 @@ Extensions can add inline fields to host-owned agreement profile sections throug
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.1.0',
+  sdkVersion: '^0.2.0',
   requiredHostCapabilities: ['textarea-slots', 'extension-ui'],
   name: { en: 'Example', fr: 'Exemple' },
   client: {
@@ -187,7 +252,7 @@ Extensions can also opt server routes into host RBAC:
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.1.0',
+  sdkVersion: '^0.2.0',
   requiredHostCapabilities: ['server-handlers', 'server-handler-rbac'],
   name: { en: 'Example', fr: 'Exemple' },
   serverHandlers: [
@@ -237,7 +302,7 @@ Extensions can add or replace the create actions on agreement commitments and pa
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.1.0',
+  sdkVersion: '^0.2.0',
   requiredHostCapabilities: ['create-actions', 'extension-ui', 'extension-lifecycle-hooks'],
   name: { en: 'Example', fr: 'Exemple' },
   client: {
@@ -433,7 +498,7 @@ Extensions may declare explicit Kysely migration files in `extension.config.ts`:
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.1.0',
+  sdkVersion: '^0.2.0',
   requiredHostCapabilities: ['migrations'],
   name: { en: 'Example', fr: 'Exemple' },
   migrations: [
@@ -470,7 +535,7 @@ Business entities that participate in host Completion and Workflow orchestration
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.1.0',
+  sdkVersion: '^0.2.0',
   requiredHostCapabilities: ['lifecycle-entities', 'migrations'],
   name: { en: 'Example', fr: 'Exemple' },
   entities: [{

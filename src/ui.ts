@@ -8,6 +8,8 @@ import type {
   GcsClientExtensionManifest,
   ExtensionEntityTabContext,
   GcsExtensionJsonConfig,
+  GcsFileStoragePurpose,
+  GcsFileStorageTarget,
   GcsExtensionRbacRequirement,
   JsonValue
 } from './index'
@@ -231,6 +233,22 @@ export interface GcsStreamConfigComponentProps {
 export interface GcsAgencyConfigComponentProps {
   extension: GcsClientExtensionManifest
   agencyId: string
+}
+
+/** Props implemented by an optional provider-owned attachment metadata form. */
+export interface GcsFileStorageMetadataComponentProps {
+  mode: 'create' | 'update'
+  agencyId: string
+  purpose: GcsFileStoragePurpose
+  target?: GcsFileStorageTarget
+  modelValue: Record<string, JsonValue>
+  disabled: boolean
+  readOnly: boolean
+}
+
+/** Emits implemented by a provider-owned attachment metadata form. */
+export interface GcsFileStorageMetadataComponentEmits {
+  (event: 'update:modelValue', value: Record<string, JsonValue>): void
 }
 
 export interface GcsEntityTabComponentProps {

@@ -1,6 +1,6 @@
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.2.0'
+export const GCS_EXTENSION_SDK_VERSION = '0.2.1'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -374,6 +374,35 @@ export interface GcsExtensionComponentDefinition {
   componentName?: string
 }
 
+/** Business entity identity supplied by the host to a storage provider. */
+export interface GcsFileStorageTarget {
+  entityType: string
+  entityId: string
+}
+
+export type GcsFileStoragePurpose = 'attachment' | 'document-template' | 'generated-document'
+export type GcsFileStorageMetadataPersistence = 'host' | 'provider'
+export type GcsFileStorageMetadataMutability = 'upload-only' | 'editable'
+
+export interface GcsFileStorageMetadataContributionDefinition {
+  component: GcsExtensionComponentDefinition
+  validator: {
+    path: string
+  }
+  persistence: GcsFileStorageMetadataPersistence
+  mutability: GcsFileStorageMetadataMutability
+  /** Positive integer identifying the provider-owned metadata contract. */
+  contractVersion: number
+}
+
+/** Singular object-storage contribution. The containing extension key is its permanent provider ID. */
+export interface GcsFileStorageProviderDefinition {
+  adapter: {
+    path: string
+  }
+  metadata?: GcsFileStorageMetadataContributionDefinition
+}
+
 export interface GcsExtensionSlotDefinition extends GcsExtensionComponentDefinition {
   slot: GcsExtensionSlot
 }
@@ -539,6 +568,7 @@ export type GcsExtensionHostCapability =
   | 'extension-create-operation-hooks'
   | 'extension-lifecycle-hooks'
   | 'lifecycle-entities'
+  | 'file-storage-provider'
 
 export interface GcsExtensionAdminDefinition {
   agency?: GcsExtensionComponentDefinition
@@ -573,9 +603,26 @@ export interface GcsExtensionDefinition {
   entities?: GcsExtensionLifecycleEntityDefinition[]
   runtime?: GcsExtensionRuntimeResolverDefinition
   nitroPlugin?: string
+  fileStorageProvider?: GcsFileStorageProviderDefinition
 }
 
-export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admin' | 'client' | 'css' | 'i18n' | 'assets' | 'serverHandlers' | 'migrations' | 'entities' | 'runtime' | 'nitroPlugin'> {
+export interface GcsResolvedFileStorageProviderDefinition extends Omit<GcsFileStorageProviderDefinition, 'metadata'> {
+  adapter: { path: string }
+  metadata?: Omit<GcsFileStorageMetadataContributionDefinition, 'component' | 'validator'> & {
+    component: GcsExtensionComponentDefinition
+    validator: { path: string }
+  }
+}
+
+export interface GcsRegisteredFileStorageProviderDefinition {
+  adapter: { id: string }
+  metadata?: Omit<GcsFileStorageMetadataContributionDefinition, 'component' | 'validator'> & {
+    component: GcsClientExtensionComponentDefinition
+    validator: { id: string }
+  }
+}
+
+export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admin' | 'client' | 'css' | 'i18n' | 'assets' | 'serverHandlers' | 'migrations' | 'entities' | 'runtime' | 'nitroPlugin' | 'fileStorageProvider'> {
   packageName: string
   rootDir: string
   sdkVersion: string
@@ -613,6 +660,7 @@ export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admi
   entities?: GcsResolvedExtensionLifecycleEntityDefinition[]
   runtime?: GcsExtensionRuntimeResolverDefinition
   nitroPlugin?: string
+  fileStorageProvider?: GcsResolvedFileStorageProviderDefinition
 }
 
 export type GcsClientExtensionComponentDefinition = Omit<GcsExtensionComponentDefinition, 'path'> & {
@@ -659,6 +707,11 @@ export interface GcsClientExtensionManifest {
     tabs: GcsClientExtensionEntityTabDefinition[]
     createActions: GcsClientExtensionCreateActionDefinition[]
     paymentAmountCalculators: GcsClientExtensionPaymentAmountCalculatorDefinition[]
+  }
+  fileStorageProvider?: {
+    metadata?: Omit<GcsFileStorageMetadataContributionDefinition, 'component' | 'validator'> & {
+      component: GcsClientExtensionComponentDefinition
+    }
   }
 }
 

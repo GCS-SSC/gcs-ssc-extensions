@@ -13,6 +13,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   attachGcsLifecycleEntityIdentity,
   createGcsExtensionRouteContext,
+  defineGcsFileStorageMetadataValidator,
+  defineGcsFileStorageProviderAdapter,
   GCS_EXTENSION_AGREEMENT_DELETE_GUARD_HOOK,
   GCS_EXTENSION_AGREEMENT_LIFECYCLE_LOCK_HOOK,
   GCS_EXTENSION_AGREEMENT_STREAM_CHANGE_GUARD_HOOK,
@@ -90,6 +92,55 @@ const createTestRouteEvent = (
 }
 
 describe('extension SDK server helpers', () => {
+  it('preserves typed storage adapters and metadata normalizers', async () => {
+    const adapter = defineGcsFileStorageProviderAdapter({
+      async writeObject(input) {
+        return {
+          objectId: input.objectName,
+          locator: { key: input.objectName }
+        }
+      },
+      async readObject() {
+        return { bytes: new Uint8Array([1, 2, 3]) }
+      },
+      async deleteObject() {}
+    })
+    const validator = defineGcsFileStorageMetadataValidator((metadata, context) => ({
+      ...metadata,
+      version: context.contractVersion
+    }))
+
+    await expect(adapter.writeObject({
+      objectName: 'opaque-1',
+      bytes: new Uint8Array([1]),
+      contentType: 'text/plain',
+      agencyId: 'agency-1',
+      purpose: 'attachment',
+      target: { entityType: 'fundingcaseagreement', entityId: 'agreement-1' },
+      agencyConfig: {},
+      secrets: { get: async () => null },
+      providerMetadata: { tier: 'standard' }
+    })).resolves.toEqual({
+      objectId: 'opaque-1',
+      locator: { key: 'opaque-1' }
+    })
+    await expect(adapter.readObject({
+      objectId: 'opaque-1',
+      locator: { key: 'opaque-1' },
+      agencyId: 'agency-1',
+      purpose: 'attachment',
+      agencyConfig: {}
+      , secrets: { get: async () => null }
+    })).resolves.toEqual({ bytes: new Uint8Array([1, 2, 3]) })
+    expect(await validator({ tier: 'standard' }, {
+      mode: 'create',
+      agencyId: 'agency-1',
+      purpose: 'attachment',
+      contractVersion: 2,
+      agencyConfig: {}
+    })).toEqual({ tier: 'standard', version: 2 })
+  })
+
   it('qualifies lifecycle identity types and rejects unsafe identity parts', () => {
     expect(qualifyGcsLifecycleEntityType('sample-extension', 'service-case')).toBe('sample-extension:service-case')
     expect(() => qualifyGcsLifecycleEntityType('Sample', 'service-case')).toThrow('Invalid extension key')
