@@ -105,14 +105,20 @@ export default defineGcsExtension({
 })
 ```
 
-The host owns attachment records, business context, filenames, MIME declarations, attachment types, authorization, lifecycle checks, upload/download APIs, and provider selection. The adapter owns only object I/O. `writeObject` receives a collision-resistant opaque object name, bytes, MIME type, agency, purpose, optional explicit business target, non-secret agency configuration, a server-only agency/provider-scoped `secrets.get(key)` reader, and optional provider metadata. It returns a stable provider object ID and an opaque JSON locator. `readObject` and idempotent `deleteObject` receive that recorded identity and the same scoped secret reader. Locators and the secret reader are server-only and must never enter client manifests or component props.
+The host owns attachment records, business context, filenames, MIME declarations, attachment types, authorization, lifecycle checks, upload/download APIs, and provider selection. The adapter owns only object I/O. `writeObject` receives a collision-resistant opaque object name, bytes, MIME type, agency, purpose, optional explicit business target, non-secret agency configuration, a server-only agency/provider-scoped `secrets.get(key)` reader, and optional provider metadata. It returns a stable provider object ID and an opaque JSON locator. The final object ID must be non-empty and at most `GCS_FILE_STORAGE_PROVIDER_OBJECT_ID_MAX_BYTES` UTF-8 bytes. A provider that derives the identity from configuration plus `objectName` must validate the exact final identity before resolving credentials, constructing a remote client, or starting a write. `readObject` and idempotent `deleteObject` receive that recorded identity and the same scoped secret reader. Locators and the secret reader are server-only and must never enter client manifests or component props.
 
 ```ts
-import { defineGcsFileStorageProviderAdapter } from '@gcs-ssc/extensions/server'
+import {
+  defineGcsFileStorageProviderAdapter,
+  GCS_FILE_STORAGE_PROVIDER_OBJECT_ID_MAX_BYTES
+} from '@gcs-ssc/extensions/server'
 
 export default defineGcsFileStorageProviderAdapter({
   async writeObject(input) {
     // Persist input.bytes under input.objectName.
+    if (new TextEncoder().encode(input.objectName).byteLength > GCS_FILE_STORAGE_PROVIDER_OBJECT_ID_MAX_BYTES) {
+      throw new Error('Provider object identity is too long')
+    }
     return {
       objectId: input.objectName,
       locator: { key: input.objectName }
@@ -204,7 +210,7 @@ export default defineGcsExtension({
 })
 ```
 
-Tab paths are validated by the host scanner and must stay inside the extension package. Tab ids are lowercase kebab-case and must be unique per extension target.
+Tab paths are validated by the host scanner and must stay inside the extension package. Component definitions declare only their package-contained `path`; the host generates the runtime `componentName`, and extension authors cannot override it. Tab ids are lowercase kebab-case and must be unique per extension target.
 
 The host shows tabs only when the extension is enabled for the owning agency, stream-scoped entities are enabled for the transfer payment stream, and the current user passes the declared RBAC check. Proponent tabs use the proponent lead agency; proponents without a lead agency do not show extension tabs.
 

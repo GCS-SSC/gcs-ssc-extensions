@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { ref } from 'vue'
 import type { Ref } from 'vue'
 import { createExtensionTestUiRuntime } from '../../src/testing'
@@ -13,9 +13,14 @@ import {
   ExtensionStatusSelect,
   ExtensionWorkflowSection,
   setExtensionUiRuntime,
+  useExtensionApi,
   useExtensionConfirmDialog,
   useExtensionFetch,
-  useExtensionGroupedTableExpansion
+  useExtensionGroupedTableExpansion,
+  useExtensionI18n,
+  useExtensionToast,
+  useHostApi,
+  useHostLifecycleApi
 } from '../../src/ui'
 import type {
   GcsExtensionFetchResult,
@@ -24,6 +29,8 @@ import type {
 } from '../../src/ui'
 
 describe('extension SDK API clients', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
   it('builds normalized extension and host API paths', () => {
     expect(buildExtensionApiPath('example-extension', 'things', { page: 2, empty: null }))
       .toBe('/api/extensions/example-extension/things?page=2')
@@ -84,6 +91,60 @@ describe('extension SDK API clients', () => {
       workflowSetupId: 'setup-1',
       purpose: 'standard'
     })
+  })
+
+  it('executes every extension and host client method with normalized query and bodies', async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' }
+    })) as unknown as typeof fetch
+    const extension = createExtensionApiClient({
+      extensionKey: 'sample-extension',
+      basePath: '/v1',
+      fetch: fetcher
+    })
+    expect(extension.path('/items', { enabled: true, tags: 'one,two', empty: undefined }))
+      .toBe('/api/extensions/sample-extension/v1/items?enabled=true&tags=one%2Ctwo')
+    await extension.get('/items')
+    await extension.post('/items', { name: 'created' })
+    await extension.put('/items/1', { name: 'put' })
+    await extension.patch('/items/1', { name: 'patch' })
+    await extension.delete('/items/1', { body: { reason: 'delete' } })
+
+    const host = createHostApiClient({ fetch: fetcher })
+    await host.post('/api/items', { name: 'created' })
+    await host.put('/api/items/1', { name: 'put' })
+    await host.patch('/api/items/1', { name: 'patch' })
+    await host.delete('/api/items/1', { body: { reason: 'delete' } })
+    expect(fetcher).toHaveBeenCalledTimes(9)
+  })
+
+  it('surfaces failed and malformed successful JSON responses', async () => {
+    const failedFetch = vi.fn(async () => new Response(JSON.stringify({ message: 'Denied' }), {
+      status: 403,
+      headers: { 'content-type': 'application/json' }
+    })) as unknown as typeof fetch
+    await expect(createHostApiClient({ fetch: failedFetch }).get('/api/denied'))
+      .rejects.toMatchObject({ message: 'Denied' })
+
+    const malformedFetch = vi.fn(async () => new Response('not-json', { status: 200 })) as unknown as typeof fetch
+    await expect(createHostApiClient({ fetch: malformedFetch }).get('/api/malformed'))
+      .rejects.toBeInstanceOf(SyntaxError)
+  })
+
+  it('executes completion lifecycle calls and global convenience clients', async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 204 })) as unknown as typeof fetch
+    const lifecycle = createHostLifecycleApiClient({ fetch: fetcher })
+    await lifecycle.getCompletion('sample:case', '1')
+    await lifecycle.complete({ entityType: 'sample:case', entityId: '1', comments: 'Complete' })
+    await lifecycle.getAvailableStandardWorkflows('sample:case', '1')
+    await lifecycle.startStandardWorkflow({ entityType: 'sample:case', entityId: '1', workflowSetupId: '2' })
+
+    vi.stubGlobal('fetch', fetcher)
+    await useExtensionApi('sample-extension').get('/health')
+    await useHostApi().get('/api/health')
+    await useHostLifecycleApi().getCompletion('sample:case', '1')
+    expect(fetcher).toHaveBeenCalledTimes(7)
   })
 })
 
@@ -154,5 +215,18 @@ describe('extension SDK UI runtime adapters', () => {
       .toEqualTypeOf<GcsGroupedTableExpandedState>()
 
     clearExtensionUiRuntime()
+  })
+
+  it('forwards i18n and toast composables from the installed runtime', () => {
+    const runtime = createExtensionTestUiRuntime()
+    const add = vi.fn()
+    runtime.composables.useToast = () => ({ add })
+    setExtensionUiRuntime(runtime)
+
+    expect(useExtensionI18n().t('key')).toBe('key')
+    useExtensionToast().add({ title: 'Saved' })
+    expect(add).toHaveBeenCalledWith({ title: 'Saved' })
+    clearExtensionUiRuntime()
+    expect(() => useExtensionI18n()).toThrow('runtime is not installed')
   })
 })

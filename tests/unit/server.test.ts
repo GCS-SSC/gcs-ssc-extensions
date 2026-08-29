@@ -15,6 +15,7 @@ import {
   createGcsExtensionRouteContext,
   defineGcsFileStorageMetadataValidator,
   defineGcsFileStorageProviderAdapter,
+  GCS_FILE_STORAGE_PROVIDER_OBJECT_ID_MAX_BYTES,
   GCS_EXTENSION_AGREEMENT_DELETE_GUARD_HOOK,
   GCS_EXTENSION_AGREEMENT_LIFECYCLE_LOCK_HOOK,
   GCS_EXTENSION_AGREEMENT_STREAM_CHANGE_GUARD_HOOK,
@@ -92,6 +93,10 @@ const createTestRouteEvent = (
 }
 
 describe('extension SDK server helpers', () => {
+  it('publishes the stable provider object identity UTF-8 byte limit', () => {
+    expect(GCS_FILE_STORAGE_PROVIDER_OBJECT_ID_MAX_BYTES).toBe(512)
+  })
+
   it('preserves typed storage adapters and metadata normalizers', async () => {
     const adapter = defineGcsFileStorageProviderAdapter({
       async writeObject(input) {
@@ -286,7 +291,13 @@ describe('extension SDK server helpers', () => {
       lockAuthState: vi.fn(async () => undefined),
       authorizeCurrentScope: vi.fn(async () => undefined),
       authorizeCurrentEntity: vi.fn(async () => undefined),
-      lockAndAuthorizeAgreement: vi.fn(async () => true)
+      lockAndAuthorizeAgreement: vi.fn(async () => true),
+      createAgreementClaim: vi.fn(async () => ({
+        status: 'created' as const,
+        claimId: 'claim-1',
+        lineItemIds: ['line-1'],
+        draftStatusId: 'status-1'
+      }))
     }
     const agreementAccess = {
       listVisibleOptions: vi.fn(async () => [])
@@ -299,6 +310,9 @@ describe('extension SDK server helpers', () => {
 
     expect(createGcsExtensionRouteContext(event).writeAuthorization).toBe(writeAuthorization)
     expect(createGcsExtensionRouteContext(event).agreementAccess).toBe(agreementAccess)
+    expect(createGcsExtensionRouteContext(event).writeAuthorization?.createAgreementClaim).toBe(
+      writeAuthorization.createAgreementClaim
+    )
   })
 
   it('rejects structural SDK event mocks at the H3 request-helper boundary', async () => {

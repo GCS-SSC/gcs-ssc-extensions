@@ -370,7 +370,6 @@ export const GCS_EXTENSION_CLAIM_FIELDS: GcsExtensionEntityFieldDefinition[] = [
 
 export interface GcsExtensionComponentDefinition {
   path: string
-  name?: string
   componentName?: string
 }
 
@@ -439,11 +438,6 @@ export interface GcsExtensionPaymentAmountCalculatorDefinition extends GcsExtens
   id: string
   label: GcsExtensionBilingualLabel
   rbac: GcsExtensionRbacRequirement
-}
-
-export interface GcsExtensionI18nDefinition {
-  en?: string
-  fr?: string
 }
 
 export interface GcsExtensionAssetDefinition {
@@ -596,7 +590,6 @@ export interface GcsExtensionDefinition {
     paymentAmountCalculators?: GcsExtensionPaymentAmountCalculatorDefinition[]
   }
   css?: string[]
-  i18n?: GcsExtensionI18nDefinition
   assets?: GcsExtensionAssetDefinition[]
   serverHandlers?: GcsExtensionServerHandlerDefinition[]
   migrations?: GcsExtensionMigrationDefinition[]
@@ -622,7 +615,7 @@ export interface GcsRegisteredFileStorageProviderDefinition {
   }
 }
 
-export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admin' | 'client' | 'css' | 'i18n' | 'assets' | 'serverHandlers' | 'migrations' | 'entities' | 'runtime' | 'nitroPlugin' | 'fileStorageProvider'> {
+export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admin' | 'client' | 'css' | 'assets' | 'serverHandlers' | 'migrations' | 'entities' | 'runtime' | 'nitroPlugin' | 'fileStorageProvider'> {
   packageName: string
   rootDir: string
   sdkVersion: string
@@ -641,7 +634,6 @@ export interface GcsResolvedExtension extends Omit<GcsExtensionDefinition, 'admi
     }>
   }
   css: string[]
-  i18n: GcsExtensionI18nDefinition
   assets: Array<{
     baseURL: string
     dir: string

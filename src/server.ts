@@ -22,6 +22,9 @@ export type GcsExtensionMigration = Migration
 
 export type GcsFileStorageJsonObject = Record<string, JsonValue>
 
+/** Maximum UTF-8 byte length of a stable provider-owned object identity. */
+export const GCS_FILE_STORAGE_PROVIDER_OBJECT_ID_MAX_BYTES = 512
+
 /** Agency- and provider-scoped secret reader supplied only to server adapters. */
 export interface GcsFileStorageSecretReader {
   get: (key: string) => Promise<JsonValue | null>
@@ -651,6 +654,44 @@ export interface GcsExtensionAuthContext {
   }
 }
 
+export interface GcsExtensionAgreementClaimLineItemCreateInput {
+  budgetLineItemId: string | null
+  submittedCostCategory: string | null
+  submittedCostSubsection: string | null
+  submittedLineItem: string | null
+  description: string
+  amount: number
+  currency: string
+}
+
+export interface GcsExtensionAgreementClaimCreateInput {
+  agreementId: string
+  streamId: string
+  fiscalYearId: string
+  isFinalForYear: boolean
+  periodStart: number
+  periodEnd: number
+  receivedDate: Date
+  submissionUuid: string | null
+  expectedDraftStatusId?: string
+  lineItems: GcsExtensionAgreementClaimLineItemCreateInput[]
+}
+
+export type GcsExtensionAgreementClaimCreateResult =
+  | {
+      status: 'created'
+      claimId: string
+      lineItemIds: string[]
+      draftStatusId: string
+    }
+  | {
+      status:
+        | 'agreement_unavailable'
+        | 'fiscal_year_unavailable'
+        | 'requested_status_unavailable'
+        | 'requested_status_not_draft'
+    }
+
 /** Host-owned authorization phases for extension transactions that acquire lifecycle locks. */
 export interface GcsExtensionWriteAuthorization {
   /** Locks and rebuilds the current user's grant graph before extension lifecycle locks. */
@@ -664,6 +705,11 @@ export interface GcsExtensionWriteAuthorization {
     db: unknown,
     input: { agreementId: string; streamId: string; action: 'update' | 'delete' }
   ) => Promise<boolean>
+  /** Freshly authorizes and atomically creates a Draft Claim aggregate and creator-primary assignment. */
+  createAgreementClaim?: (
+    db: unknown,
+    input: GcsExtensionAgreementClaimCreateInput
+  ) => Promise<GcsExtensionAgreementClaimCreateResult>
 }
 
 export interface GcsExtensionAgreementOption {
