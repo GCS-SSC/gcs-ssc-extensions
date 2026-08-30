@@ -168,13 +168,22 @@ describe('extension SDK server helpers', () => {
       await expect(attachGcsLifecycleEntityIdentity(db as unknown as Kysely<unknown>, {
         extensionKey: 'sample-extension',
         localType: 'service-case',
-        table: 'sample_service_case'
+        table: 'sample_service_case',
+        ownerKind: 'agreement',
+        ownerIdColumn: 'agreement_id'
       })).resolves.toBe('sample-extension:service-case')
 
       const queries = executeQuery.mock.calls.map(([query]) => query.sql as string)
       expect(queries[0]).toContain('FROM "Common_Entity_Type"')
-      expect(queries[2]).toContain('REFERENCES "Common_Entity"(id)')
-      expect(queries[4]).toContain('register_entity(\'sample-extension:service-case\')')
+      expect(queries[0]).toContain('egcs_cn_ownerkind')
+      expect(queries).toEqual(expect.arrayContaining([
+        expect.stringContaining('REFERENCES "Common_Entity"(id)'),
+        expect.stringContaining('register_entity(\'sample-extension:service-case\')'),
+        expect.stringContaining('bind_extension_entity_owner'),
+        expect.stringContaining('lock_extension_entity_owner_column')
+      ]))
+      expect(queries.join('\n')).toContain("'fundingcaseagreement'")
+      expect(queries.join('\n')).toContain("'agreement_id'")
     } finally {
       await db.destroy()
     }
@@ -193,7 +202,9 @@ describe('extension SDK server helpers', () => {
       await expect(attachGcsLifecycleEntityIdentity(db as unknown as Kysely<unknown>, {
         extensionKey: 'sample-extension',
         localType: 'service-case',
-        table: 'sample_service_case'
+        table: 'sample_service_case',
+        ownerKind: 'agreement',
+        ownerIdColumn: 'agreement_id'
       })).rejects.toThrow('must be registered before extension migrations run')
       expect(executeQuery).toHaveBeenCalledOnce()
     } finally {

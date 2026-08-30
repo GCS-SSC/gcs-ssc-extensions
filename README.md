@@ -4,6 +4,14 @@ Public SDK contracts for GCS-SSC extensions.
 
 Extensions should import host-facing types and helpers from this package instead of importing from `~~/shared`, `~~/server`, or other host-internal paths.
 
+## Money write inputs
+
+Extension-to-host money writes use `GcsExtensionMoneyInput` from `@gcs-ssc/extensions/server`. Send canonical plain decimal text with at most two fractional digits. Text is authoritative and supports the host's full persisted money range; for example, use `'1234.56'` rather than `1234.56`.
+
+Payment amount calculators emit `GcsPaymentAmountCalculatorResult` from `@gcs-ssc/extensions/ui`. Its monetary result and detail fields use canonical two-decimal strings; calculators must not emit JavaScript numbers for money.
+
+Finite JavaScript numbers remain accepted only for backwards compatibility. The host accepts them only when they round-trip to exact cents within the safe integer range. New extensions must not use numbers for money, and must not round, truncate, or convert money through `Number` before calling a host write contract.
+
 ## Installation
 
 Use the published or tagged SDK dependency from standalone extension packages:
@@ -582,7 +590,9 @@ export default defineGcsExtensionMigration({
     await attachGcsLifecycleEntityIdentity(db, {
       extensionKey: 'gcs-example',
       localType: 'service-case',
-      table: 'gcs_example_service_case'
+      table: 'gcs_example_service_case',
+      ownerKind: 'agreement',
+      ownerIdColumn: 'agreement_id'
     })
   }
 })

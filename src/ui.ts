@@ -279,6 +279,22 @@ export interface GcsPaymentAmountCalculatorComponentProps {
   model: Record<string, unknown>
 }
 
+/** Canonical two-decimal money text emitted by a payment amount calculator. */
+export type GcsPaymentAmountCalculatorMoney = string
+
+/** Public result contract emitted by an extension payment amount calculator. */
+export interface GcsPaymentAmountCalculatorResult {
+  ceilingAmount?: GcsPaymentAmountCalculatorMoney
+  suggestedAmount?: GcsPaymentAmountCalculatorMoney
+  currency?: string
+  details?: Array<{
+    label: string
+    value: GcsPaymentAmountCalculatorMoney
+  }>
+  loading?: boolean
+  error?: string | null
+}
+
 export interface GcsExtensionApiClientOptions {
   extensionKey: string
   basePath?: string

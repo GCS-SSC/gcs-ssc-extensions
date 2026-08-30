@@ -126,6 +126,8 @@ export interface GcsLifecycleEntityIdentityMigrationOptions {
   extensionKey: string
   localType: string
   table: string
+  ownerKind: 'agreement' | 'proponent'
+  ownerIdColumn: string
   schema?: string
   idColumn?: string
 }
@@ -151,7 +153,7 @@ const assertSqlIdentifier = (value: string, fieldName: string): void => {
 }
 
 const lifecycleIdentityObjectName = (
-  prefix: 'fk' | 'trigger',
+  prefix: 'fk' | 'trigger' | 'owner_bind' | 'owner_lock',
   qualifiedType: GcsQualifiedExtensionEntityType,
   table: string
 ): string => {
@@ -176,23 +178,31 @@ export const attachGcsLifecycleEntityIdentity = async (
   assertSqlIdentifier(schema, 'schema')
   assertSqlIdentifier(options.table, 'table')
   assertSqlIdentifier(idColumn, 'idColumn')
+  assertSqlIdentifier(options.ownerIdColumn, 'ownerIdColumn')
+  if (options.ownerKind !== 'agreement' && options.ownerKind !== 'proponent') {
+    throw new Error('ownerKind must be "agreement" or "proponent"')
+  }
 
   const qualifiedType = qualifyGcsLifecycleEntityType(options.extensionKey, options.localType)
+  const ownerType = options.ownerKind === 'agreement' ? 'fundingcaseagreement' : 'applicantrecipient'
   const registered = await sql<{ registered: boolean }>`
     SELECT EXISTS (
       SELECT 1
       FROM "Common_Entity_Type"
       WHERE egcs_cn_type = ${qualifiedType}
+        AND egcs_cn_ownerkind = ${options.ownerKind}
         AND _deleted = false
     ) AS registered
   `.execute(db)
   if (registered.rows[0]?.registered !== true) {
-    throw new Error(`Lifecycle entity type "${qualifiedType}" must be registered before extension migrations run`)
+    throw new Error(`Lifecycle entity type "${qualifiedType}" with owner kind "${options.ownerKind}" must be registered before extension migrations run`)
   }
 
   const relation = `${schema}.${options.table}`
   const foreignKeyName = lifecycleIdentityObjectName('fk', qualifiedType, options.table)
   const triggerName = lifecycleIdentityObjectName('trigger', qualifiedType, options.table)
+  const ownerBindingTriggerName = lifecycleIdentityObjectName('owner_bind', qualifiedType, options.table)
+  const ownerLockTriggerName = lifecycleIdentityObjectName('owner_lock', qualifiedType, options.table)
   const existingForeignKey = await sql<{ present: boolean }>`
     SELECT EXISTS (
       SELECT 1
@@ -220,6 +230,29 @@ export const attachGcsLifecycleEntityIdentity = async (
     CREATE TRIGGER ${sql.id(triggerName)}
     BEFORE INSERT ON ${sql.id(schema, options.table)}
     FOR EACH ROW EXECUTE FUNCTION register_entity(${sql.lit(qualifiedType)})
+  `.execute(db)
+  await sql`
+    DROP TRIGGER IF EXISTS ${sql.id(ownerBindingTriggerName)}
+    ON ${sql.id(schema, options.table)}
+  `.execute(db)
+  await sql`
+    CREATE TRIGGER ${sql.id(ownerBindingTriggerName)}
+    AFTER INSERT ON ${sql.id(schema, options.table)}
+    FOR EACH ROW EXECUTE FUNCTION bind_extension_entity_owner(
+      ${sql.lit(qualifiedType)},
+      ${sql.lit(idColumn)},
+      ${sql.lit(ownerType)},
+      ${sql.lit(options.ownerIdColumn)}
+    )
+  `.execute(db)
+  await sql`
+    DROP TRIGGER IF EXISTS ${sql.id(ownerLockTriggerName)}
+    ON ${sql.id(schema, options.table)}
+  `.execute(db)
+  await sql`
+    CREATE TRIGGER ${sql.id(ownerLockTriggerName)}
+    BEFORE UPDATE OF ${sql.id(options.ownerIdColumn)} ON ${sql.id(schema, options.table)}
+    FOR EACH ROW EXECUTE FUNCTION lock_extension_entity_owner_column(${sql.lit(options.ownerIdColumn)})
   `.execute(db)
 
   return qualifiedType
@@ -654,13 +687,28 @@ export interface GcsExtensionAuthContext {
   }
 }
 
+/**
+ * Money accepted at an extension-to-host write boundary.
+ *
+ * Canonical decimal text is authoritative and is required for values outside the
+ * exact JavaScript-number compatibility range. It uses plain decimal notation
+ * with no exponent and at most two fractional digits; the host canonicalizes it
+ * to two fractional digits and enforces its persisted money range.
+ *
+ * Finite numbers remain accepted for backwards compatibility only. They must
+ * round-trip to exact cents within `Number.MAX_SAFE_INTEGER`; new extension code
+ * should send canonical decimal text instead.
+ */
+export type GcsExtensionMoneyInput = string | number
+
 export interface GcsExtensionAgreementClaimLineItemCreateInput {
   budgetLineItemId: string | null
   submittedCostCategory: string | null
   submittedCostSubsection: string | null
   submittedLineItem: string | null
   description: string
-  amount: number
+  /** Exact Claim line amount. Canonical decimal text is authoritative; numbers are deprecated compatibility input. */
+  amount: GcsExtensionMoneyInput
   currency: string
 }
 
