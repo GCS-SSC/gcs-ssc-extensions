@@ -1,6 +1,6 @@
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.2.1'
+export const GCS_EXTENSION_SDK_VERSION = '0.2.2'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -563,6 +563,11 @@ export type GcsExtensionHostCapability =
   | 'extension-lifecycle-hooks'
   | 'lifecycle-entities'
   | 'file-storage-provider'
+  | 'agreement-number-provider'
+  | 'configuration-access'
+
+/** Minimum host role for changing extension enablement or JSON configuration. */
+export type GcsExtensionConfigurationAccess = 'contributor' | 'manager'
 
 export interface GcsExtensionAdminDefinition {
   agency?: GcsExtensionComponentDefinition
@@ -572,6 +577,8 @@ export interface GcsExtensionAdminDefinition {
 
 export interface GcsExtensionDefinition {
   key: string
+  /** Defaults to Contributor; explicit values require the configuration-access capability. */
+  configurationAccess?: GcsExtensionConfigurationAccess
   sdkVersion: string
   requiredHostCapabilities: GcsExtensionHostCapability[]
   name: {
@@ -596,6 +603,7 @@ export interface GcsExtensionDefinition {
   entities?: GcsExtensionLifecycleEntityDefinition[]
   runtime?: GcsExtensionRuntimeResolverDefinition
   nitroPlugin?: string
+  agreementNumberProvider?: { path: string }
   fileStorageProvider?: GcsFileStorageProviderDefinition
 }
 
@@ -680,6 +688,7 @@ export type GcsClientExtensionPaymentAmountCalculatorDefinition = Omit<GcsExtens
 
 export interface GcsClientExtensionManifest {
   key: string
+  configurationAccess?: GcsExtensionConfigurationAccess
   name: {
     en: string
     fr: string
@@ -768,3 +777,15 @@ export interface GcsExtensionRuntimeResolution {
  * Marks an extension definition for host discovery without transforming its manifest.
  */
 export const defineGcsExtension = (definition: GcsExtensionDefinition): GcsExtensionDefinition => definition
+
+/** Stable creation-time sources. Bilingual values are selected explicitly, never by request locale. */
+export const GCS_AGREEMENT_NUMBER_FIELDS = [
+  'agreement.title_en', 'agreement.title_fr', 'agreement.startDate', 'agreement.endDate',
+  'agreement.financialSystemNumber', 'agency.id', 'agency.name_en', 'agency.name_fr',
+  'program.id', 'program.name_en', 'program.name_fr', 'stream.id', 'stream.name_en', 'stream.name_fr',
+  'agency.abbreviation_en', 'agency.abbreviation_fr', 'program.abbreviation_en', 'program.abbreviation_fr',
+  'stream.abbreviation_en', 'stream.abbreviation_fr'
+] as const
+export type GcsAgreementNumberField = typeof GCS_AGREEMENT_NUMBER_FIELDS[number]
+export type GcsAgreementNumberSources = Record<GcsAgreementNumberField, string>
+export interface GcsAgreementNumberMode { mode: 'manual' | 'generated' }

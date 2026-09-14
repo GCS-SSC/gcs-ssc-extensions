@@ -55,4 +55,14 @@ describe('extension SDK fetch errors and manifest identity', () => {
     const definition = { key: 'sample' } as never
     expect(defineGcsExtension(definition)).toBe(definition)
   })
+
+  it('exposes declarative Manager configuration without coupling it to an extension key', () => {
+    const definition = defineGcsExtension({
+      key: 'configuration-fixture', sdkVersion: '^0.2.2',
+      name: { en: 'Fixture', fr: 'Test' },
+      requiredHostCapabilities: ['configuration-access'], configurationAccess: 'manager'
+    })
+    expect(definition.configurationAccess).toBe('manager')
+    expect(definition.requiredHostCapabilities).toContain('configuration-access')
+  })
 })

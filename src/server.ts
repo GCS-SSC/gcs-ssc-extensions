@@ -1925,3 +1925,15 @@ export const deleteEncryptedExtensionSecret = async <Database extends ExtensionS
     .where('_deleted', '=', false)
     .execute()
 }
+
+/** A provider may only supply the identifier; the host owns creation and its transaction. */
+export interface GcsAgreementNumberProviderContext {
+  db: Transaction<unknown>
+  agencyId: string
+  programId: string
+  streamId: string
+  config: GcsExtensionJsonConfig
+  agencyConfig: GcsExtensionJsonConfig
+  sources: import('./index').GcsAgreementNumberSources
+}
+export type GcsAgreementNumberProvider = (context: GcsAgreementNumberProviderContext) => Promise<string>

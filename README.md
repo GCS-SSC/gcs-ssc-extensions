@@ -170,6 +170,17 @@ All adapter, validator, and component paths are resolved inside the extension pa
 
 ## Stream Configuration Components
 
+Extensions can declare `configurationAccess: 'manager'` together with the
+`configuration-access` host capability to require Manager authority for their
+host-managed enablement and JSON configuration writes. The host checks Agency
+authority for Agency settings and Program authority at the resolved owner scope
+for Stream settings, including a fresh check inside the write transaction.
+Omitting the declaration retains Contributor access; an explicit `'contributor'`
+value is also supported. Scoped Viewers retain read access to non-secret
+configuration. Registry responses include `canConfigure` for host UI controls.
+This contract does not grant extension-owned handlers authority: their declared
+RBAC remains independently enforced. SDK 0.2.2 introduces this contract.
+
 Extensions can render a stream-level configuration component with `admin.streamConfig`.
 The host passes the editable JSON config with `v-model` plus stable stream context props:
 
@@ -720,3 +731,28 @@ The package includes a `prepare` script, so GitHub-based installs build `dist` a
 ## Adding Host Capabilities
 
 When an extension needs a new host type, schema, or helper, add it here first and document the host boundary in the main application's `architecture/extensions.md`. Keep host internals behind this boundary so standalone extension repositories can typecheck and test without depending on the full GCS-SSC application source tree.
+
+### Agreement number providers (SDK 0.2.2)
+
+Declare `agreementNumberProvider: { path: './server/provider.ts' }` and the
+`agreement-number-provider` capability. Its default export implements
+`GcsAgreementNumberProvider` from the server entry point and returns a string.
+The host supplies its active transaction, resolved Agency/Program/Stream IDs,
+Agency and Stream configuration, and the allowlisted `GcsAgreementNumberSources`.
+`GCS_AGREEMENT_NUMBER_FIELDS` publishes the supported field keys. Language-specific
+fields are explicit; UI locale does not select an identifier's language.
+
+The provider may write its own counter tables through the supplied transaction.
+It must not insert an Agreement, commit, start another transaction, or mutate host
+rows. The host can call it again within the transaction when a candidate already
+exists; allocations for rejected candidates commit with a successful creation and
+all allocations roll back when creation fails. Providers must tolerate that call
+contract. Stream locks serialize supported number writers; the host's unique
+constraint remains authoritative. Competing enabled providers cause an error.
+
+`GET /api/agreements/number-mode?streamId=<id>` returns `GcsAgreementNumberMode`
+(`manual` or `generated`) under Agreement-create authorization. A supported host
+API client can read that endpoint for presentation. The create transaction resolves
+mode again: manual creation requires a number, generated creation must omit it.
+The response always includes the saved required number. This API does not reserve
+or preview a number. Existing profiles are not regenerated on updates.
