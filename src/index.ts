@@ -2,7 +2,7 @@ export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './mess
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.3.0'
+export const GCS_EXTENSION_SDK_VERSION = '0.3.1'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -567,6 +567,7 @@ export type GcsExtensionHostCapability =
   | 'file-storage-provider'
   | 'agreement-number-provider'
   | 'configuration-access'
+  | 'agency-only-configuration'
 
 /** Minimum host role for changing extension enablement or JSON configuration. */
 export type GcsExtensionConfigurationAccess = 'contributor' | 'manager'
@@ -581,6 +582,8 @@ export interface GcsExtensionDefinition {
   key: string
   /** Defaults to Contributor; explicit values require the configuration-access capability. */
   configurationAccess?: GcsExtensionConfigurationAccess
+  /** Agency-only extensions have no stream enablement or configuration. */
+  configurationScope?: 'agency'
   sdkVersion: string
   requiredHostCapabilities: GcsExtensionHostCapability[]
   name: {
@@ -691,6 +694,8 @@ export type GcsClientExtensionPaymentAmountCalculatorDefinition = Omit<GcsExtens
 export interface GcsClientExtensionManifest {
   key: string
   configurationAccess?: GcsExtensionConfigurationAccess
+  /** Agency-only extensions have no stream enablement or configuration. */
+  configurationScope?: 'agency'
   name: {
     en: string
     fr: string

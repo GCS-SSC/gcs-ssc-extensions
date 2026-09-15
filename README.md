@@ -792,3 +792,13 @@ Upgrade all dependent manifests and package ranges to `^0.3.0`. Test your catalo
 locale switching and UI without supplying a host translator; include `i18n/**/*.ts`
 in your own coverage configuration. `installExtensionTestUiRuntime` projects only
 locale/number formatting from any global test composer.
+
+## Agency-only configuration (0.3.1)
+
+Set `configurationScope: 'agency'` and declare `agency-only-configuration` to own
+configuration and enablement only at the agency. Do not declare stream editors.
+The host hides stream configuration and rejects direct stream writes. Number
+providers in this mode run for every agreement in an enabled agency and receive
+`agencyConfig` plus authoritative agency/program/stream IDs; `config` is empty.
+Omitting the declaration preserves the existing stream enablement contract.
+Configuration authorization remains controlled by `configurationAccess`.
