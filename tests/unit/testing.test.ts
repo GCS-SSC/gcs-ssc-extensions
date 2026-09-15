@@ -104,7 +104,7 @@ describe('extension SDK testing runtime', () => {
     expect(grouped.getGroupedRowCount({} as never)).toBe(0)
     expect(grouped.canExpandGroupedRow({} as never)).toBe(false)
     expect(grouped.updateExpandedRows(true)).toBeUndefined()
-    expect(runtime.composables.useI18n().t('key')).toBe('key')
+    expect(runtime.composables.useI18n()).not.toHaveProperty('t')
     expect(runtime.composables.useI18n().n(1234)).toContain('1,234')
     expect(runtime.composables.useToast().add({ title: 'saved' })).toBeUndefined()
 
@@ -114,7 +114,7 @@ describe('extension SDK testing runtime', () => {
     ;(globalThis as { useI18n?: unknown }).useI18n = globalI18n
     expect(createExtensionTestUiRuntime().composables.useFetch('/api/delegated'))
       .toEqual({ delegated: true })
-    expect(createExtensionTestUiRuntime().composables.useI18n().t('key')).toBe('translated')
+    expect(createExtensionTestUiRuntime().composables.useI18n()).not.toHaveProperty('t')
   })
 
   it('merges overrides and installs the runtime globally', () => {

@@ -278,11 +278,11 @@ export const createExtensionTestUiRuntime = (
           useI18n?: () => unknown
         }).useI18n
         if (globalI18n) {
-          return globalI18n() as ReturnType<GcsExtensionUiRuntime['composables']['useI18n']>
+          const runtime = globalI18n() as ReturnType<GcsExtensionUiRuntime['composables']['useI18n']>
+          return { locale: runtime.locale, n: runtime.n }
         }
 
         return {
-          t: (key: string) => key,
           n: (value: number, options?: Intl.NumberFormatOptions) => new Intl.NumberFormat('en-CA', options).format(value),
           locale: ref('en')
         }

@@ -19,7 +19,7 @@ Use the published or tagged SDK dependency from standalone extension packages:
 ```json
 {
   "dependencies": {
-    "@gcs-ssc/extensions": "^0.2.1"
+    "@gcs-ssc/extensions": "^0.3.0"
   }
 }
 ```
@@ -70,7 +70,8 @@ Use the SDK UI wrappers instead:
 <script setup lang="ts">
 import { ExtensionButton, ExtensionFormField, useExtensionI18n } from '@gcs-ssc/extensions/ui'
 
-const { t } = useExtensionI18n()
+import { messages } from '../i18n/messages'
+const { t } = useExtensionI18n(messages)
 </script>
 
 <template>
@@ -104,7 +105,7 @@ import { defineGcsExtension } from '@gcs-ssc/extensions'
 
 export default defineGcsExtension({
   key: 'gcs-storage-example',
-  sdkVersion: '^0.2.1',
+  sdkVersion: '^0.3.0',
   requiredHostCapabilities: ['file-storage-provider'],
   name: { en: 'Example storage', fr: 'Stockage exemple' },
   fileStorageProvider: {
@@ -211,7 +212,7 @@ Extensions can add tabs to funding case agreements, proponents, claims, and moni
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.2.0',
+  sdkVersion: '^0.3.0',
   requiredHostCapabilities: ['server-handlers', 'server-handler-rbac'],
   name: { en: 'Example', fr: 'Exemple' },
   client: {
@@ -238,7 +239,7 @@ Extensions can add inline fields to host-owned agreement profile sections throug
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.2.0',
+  sdkVersion: '^0.3.0',
   requiredHostCapabilities: ['textarea-slots', 'extension-ui'],
   name: { en: 'Example', fr: 'Exemple' },
   client: {
@@ -277,7 +278,7 @@ Extensions can also opt server routes into host RBAC:
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.2.0',
+  sdkVersion: '^0.3.0',
   requiredHostCapabilities: ['server-handlers', 'server-handler-rbac'],
   name: { en: 'Example', fr: 'Exemple' },
   serverHandlers: [
@@ -327,7 +328,7 @@ Extensions can add or replace the create actions on agreement commitments and pa
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.2.0',
+  sdkVersion: '^0.3.0',
   requiredHostCapabilities: ['create-actions', 'extension-ui', 'extension-lifecycle-hooks'],
   name: { en: 'Example', fr: 'Exemple' },
   client: {
@@ -523,7 +524,7 @@ Extensions may declare explicit Kysely migration files in `extension.config.ts`:
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.2.0',
+  sdkVersion: '^0.3.0',
   requiredHostCapabilities: ['migrations'],
   name: { en: 'Example', fr: 'Exemple' },
   migrations: [
@@ -560,7 +561,7 @@ Business entities that participate in host Completion and Workflow orchestration
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.2.0',
+  sdkVersion: '^0.3.0',
   requiredHostCapabilities: ['lifecycle-entities', 'migrations'],
   name: { en: 'Example', fr: 'Exemple' },
   entities: [{
@@ -756,3 +757,38 @@ API client can read that endpoint for presentation. The create transaction resol
 mode again: manual creation requires a number, generated creation must omit it.
 The response always includes the saved required number. This API does not reserve
 or preview a number. Existing profiles are not regenerated on updates.
+
+## Owned translations (breaking in 0.3.0)
+
+Store extension-authored messages in your package's `i18n/` modules. Define flat
+English/French catalogs with `defineGcsExtensionMessages` from the root SDK entry
+point, then call `useExtensionI18n(messages)` in UI setup. It returns `t` restricted
+to that catalog, reactive read-only `locale`, and `n`. The host runtime exposes
+only locale/number formatting and cannot resolve host message keys for extensions.
+There is no catalog-free overload, host fallback, or cross-extension registry.
+
+```ts
+import { defineGcsExtensionMessages, translateGcsExtensionMessage } from '@gcs-ssc/extensions'
+export const messages = defineGcsExtensionMessages({
+  en: { saved: 'Saved {count} records' },
+  fr: { saved: '{count} dossiers enregistrés' }
+})
+// Pure server/shared use; UI uses useExtensionI18n(messages).t(...).
+translateGcsExtensionMessage(messages, 'fr', 'saved', { count: 0 })
+```
+
+The definition validates identical locale keys and named-placeholder sets and
+freezes detached catalog copies. Missing keys/parameters throw. Named `{count}`
+interpolation is literal and single-pass; `@`, pipes and inserted braces are plain
+text. ICU plurals, HTML and linked-message syntax are not interpreted. Use explicit
+plural keys. French locale tags select French; other locales select English.
+
+Own common words, enum labels, validation text and notifications as well as feature
+text. Host-provided controls retain their own internal labels. Persisted bilingual
+names and already-localized API messages remain data. The existing bilingual SDK
+user-error payload remains available for extension-owned server errors.
+
+Upgrade all dependent manifests and package ranges to `^0.3.0`. Test your catalogs,
+locale switching and UI without supplying a host translator; include `i18n/**/*.ts`
+in your own coverage configuration. `installExtensionTestUiRuntime` projects only
+locale/number formatting from any global test composer.

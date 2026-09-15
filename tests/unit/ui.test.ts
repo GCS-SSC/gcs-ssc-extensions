@@ -223,10 +223,10 @@ describe('extension SDK UI runtime adapters', () => {
     runtime.composables.useToast = () => ({ add })
     setExtensionUiRuntime(runtime)
 
-    expect(useExtensionI18n().t('key')).toBe('key')
+    expect(useExtensionI18n({ en: { key: 'key' }, fr: { key: 'clé' } }).t('key')).toBe('key')
     useExtensionToast().add({ title: 'Saved' })
     expect(add).toHaveBeenCalledWith({ title: 'Saved' })
     clearExtensionUiRuntime()
-    expect(() => useExtensionI18n()).toThrow('runtime is not installed')
+    expect(() => useExtensionI18n({ en: { key: 'key' }, fr: { key: 'clé' } })).toThrow('runtime is not installed')
   })
 })

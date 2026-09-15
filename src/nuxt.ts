@@ -5,12 +5,6 @@ export interface GcsRef<T> {
   value: T
 }
 
-export interface GcsI18nComposer {
-  locale: GcsRef<string>
-  t: (key: string, params?: Record<string, unknown>) => string
-  n: (value: number, options?: Record<string, unknown>) => string
-}
-
 export type GcsFetchStatus = 'idle' | 'pending' | 'success' | 'error'
 
 export type GcsExtensionRbacAction = 'create' | 'read' | 'update' | 'delete'

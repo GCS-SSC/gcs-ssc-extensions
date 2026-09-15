@@ -1,4 +1,5 @@
-import { defineComponent, h } from 'vue'
+import { translateGcsExtensionMessage, type GcsExtensionMessages, type GcsExtensionMessageValues } from './messages.js'
+import { computed, defineComponent, h } from 'vue'
 import type { Component, Ref } from 'vue'
 import { throwFetchResponseError } from './index'
 import type {
@@ -54,7 +55,6 @@ export interface GcsGroupedTableExpansionResult<Row> {
 
 export interface GcsExtensionI18n {
   locale: Ref<string>
-  t: (key: string, values?: Record<string, unknown>) => string
   n: (value: number, options?: Intl.NumberFormatOptions) => string
 }
 
@@ -558,7 +558,15 @@ export const useHostApi = () => createHostApiClient()
 /**
  * Resolves the host-provided extension i18n composable.
  */
-export const useExtensionI18n = () => getExtensionUiRuntime().composables.useI18n()
+export const useExtensionI18n = <Catalog extends GcsExtensionMessages>(messages: Catalog) => {
+  const runtime = getExtensionUiRuntime().composables.useI18n()
+  return {
+    locale: computed(() => runtime.locale.value),
+    n: (value: number, options?: Intl.NumberFormatOptions) => runtime.n(value, options),
+    t: (key: keyof Catalog['en'] & string, values?: GcsExtensionMessageValues) =>
+      translateGcsExtensionMessage(messages, runtime.locale.value, key, values)
+  }
+}
 
 /**
  * Resolves the host-provided extension toast composable.
