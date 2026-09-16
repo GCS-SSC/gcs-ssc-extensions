@@ -1,6 +1,6 @@
-import type { GcsAuditTableOwnership } from './audit-ownership'
-export { defineGcsAuditOwnership } from './audit-ownership'
-export type { GcsAuditTableOwnership, GcsAuditOwnershipRule } from './audit-ownership'
+import type { GcsAuditTableOwnership } from './audit-ownership.js'
+export { defineGcsAuditOwnership } from './audit-ownership.js'
+export type { GcsAuditTableOwnership, GcsAuditOwnershipRule } from './audit-ownership.js'
 export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './messages.js'
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
