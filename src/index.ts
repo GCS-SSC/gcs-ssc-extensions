@@ -1,8 +1,11 @@
+import type { GcsAuditTableOwnership } from './audit-ownership'
+export { defineGcsAuditOwnership } from './audit-ownership'
+export type { GcsAuditTableOwnership, GcsAuditOwnershipRule } from './audit-ownership'
 export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './messages.js'
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.3.1'
+export const GCS_EXTENSION_SDK_VERSION = '0.3.2'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -568,6 +571,7 @@ export type GcsExtensionHostCapability =
   | 'agreement-number-provider'
   | 'configuration-access'
   | 'agency-only-configuration'
+  | 'audit-ownership'
 
 /** Minimum host role for changing extension enablement or JSON configuration. */
 export type GcsExtensionConfigurationAccess = 'contributor' | 'manager'
@@ -579,6 +583,8 @@ export interface GcsExtensionAdminDefinition {
 }
 
 export interface GcsExtensionDefinition {
+  /** Server-only table ownership declarations. Omitted extension tables are global. */
+  auditOwnership?: GcsAuditTableOwnership[]
   key: string
   /** Defaults to Contributor; explicit values require the configuration-access capability. */
   configurationAccess?: GcsExtensionConfigurationAccess

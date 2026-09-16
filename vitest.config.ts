@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config'
 
 export const EXTENSION_SDK_COVERAGE_INCLUDE = [
+  'src/audit-ownership.ts',
   'src/index.ts',
   'src/messages.ts',
   'src/nuxt.ts',

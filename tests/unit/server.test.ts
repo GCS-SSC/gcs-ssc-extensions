@@ -291,6 +291,7 @@ describe('extension SDK server helpers', () => {
     const routeContext = createGcsExtensionRouteContext(contextEvent)
 
     await expect(readGcsExtensionRequestBody(rawEvent)).resolves.toEqual({ source: 'raw-event' })
+    expect(rawEvent.context.auditRequestBody).toEqual({ source: 'raw-event' })
     expect(getGcsExtensionRequestHeader(rawEvent, 'x-extension-test')).toBe('raw-header')
     await expect(readGcsExtensionRequestBody(routeContext)).resolves.toEqual({ source: 'route-context' })
     expect(getGcsExtensionRequestHeader(routeContext, 'x-extension-test')).toBe('context-header')

@@ -857,7 +857,15 @@ const requireHostH3Event = (
  */
 export const readGcsExtensionRequestBody = async <T = unknown>(
   eventOrContext: GcsExtensionRouteEvent | GcsExtensionRouteContext
-): Promise<T> => await readBody<T>(requireHostH3Event(eventOrContext))
+): Promise<T> => {
+  const event = requireHostH3Event(eventOrContext)
+  const body = await readBody<T>(event)
+  const cached: unknown = Reflect.get(event.node.req, Symbol.for('h3RawBody'))
+  const raw = cached === undefined ? undefined : await cached
+  event.context.auditRequestBody = String(event.node.req.headers['content-type'] ?? '').includes('json')
+    && (typeof raw === 'string' || Buffer.isBuffer(raw)) ? raw.toString() : body
+  return body
+}
 
 /**
  * Reads a request header from either a host event or an extension route context.

@@ -802,3 +802,42 @@ providers in this mode run for every agreement in an enabled agency and receive
 `agencyConfig` plus authoritative agency/program/stream IDs; `config` is empty.
 Omitting the declaration preserves the existing stream enablement contract.
 Configuration authorization remains controlled by `configurationAccess`.
+
+### Audit ownership (SDK 0.3.2)
+
+Declare ownership of extension-authored tables with the `audit-ownership`
+capability. Declarations are server-only, data-only rules; the host follows them
+on the executing database connection and persists the resolved audit audience.
+An undeclared extension table has global-only audit visibility.
+
+```ts
+import { defineGcsAuditOwnership, defineGcsExtension } from '@gcs-ssc/extensions'
+
+export default defineGcsExtension({
+  // ...existing manifest metadata and contributions
+  requiredHostCapabilities: ['audit-ownership'],
+  auditOwnership: defineGcsAuditOwnership([
+    {
+      table: 'extensions.example_record',
+      owner: { kind: 'owner', owner: 'agreement', column: 'agreement_id' }
+    },
+    {
+      table: 'extensions.example_detail',
+      owner: { kind: 'parent', table: 'extensions.example_record', column: 'record_id' }
+    }
+  ])
+})
+```
+
+Host owner anchors are `agency`, `program`, `stream`, `agreement` and `proponent`.
+A Proponent owner uses the executing actor's active agency-scoped roles, not the
+lead agency. `actor-agencies` declares that audience directly. Actorless execution
+requires an explicit attribution policy and is not silently classified globally.
+
+Use `switch` with a discriminator `column` and `cases` for tables whose rows have
+different owner types. Use `{ kind: 'global', reason: '...' }` for deliberately
+global data. Parent references must name a table declared by the same extension;
+`targetColumn` defaults to `id`. Reserved host tables, duplicate claims and cycles
+are rejected. Include tests for every table and every supported owner variant in
+the extension's own test suite. These declarations do not grant authorization to
+read or mutate the owning business records.
