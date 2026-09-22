@@ -610,6 +610,8 @@ export default defineGcsExtensionMigration({
 })
 ```
 
+For a Proponent owned lifecycle entity, add a bigint agency column to the concrete table and pass it as `ownerAgencyColumn` with `ownerKind: 'proponent'`. The SDK pins that selected agency in `Common_Extension_Entity_Owner` when the row is inserted and prevents later changes to the concrete owner or agency columns. Select the agency explicitly from an active role context; the Proponent's tracking lead agency does not provide lifecycle authorization.
+
 The server adapter is defined with `defineGcsLifecycleEntityAdapter(...)`. It implements identity registration, owner/scope/status resolution, canonical locking, Completion validation, and status mutation; `onPositiveTerminus` is optional. The adapter exposes domain facts inside a host transaction. It never authorizes a request or creates host Completion, Workflow, Runtime, Approval, Review, status-history, or assignment evidence itself.
 
 ## Key-Value Storage

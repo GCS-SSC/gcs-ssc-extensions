@@ -128,6 +128,8 @@ export interface GcsLifecycleEntityIdentityMigrationOptions {
   table: string
   ownerKind: 'agreement' | 'proponent'
   ownerIdColumn: string
+  /** Required for Proponent owners; stores the selected agency on the extension row. */
+  ownerAgencyColumn?: string
   schema?: string
   idColumn?: string
 }
@@ -153,7 +155,7 @@ const assertSqlIdentifier = (value: string, fieldName: string): void => {
 }
 
 const lifecycleIdentityObjectName = (
-  prefix: 'fk' | 'trigger' | 'owner_bind' | 'owner_lock',
+  prefix: 'fk' | 'trigger' | 'owner_bind' | 'owner_lock' | 'agency_lock',
   qualifiedType: GcsQualifiedExtensionEntityType,
   table: string
 ): string => {
@@ -185,6 +187,9 @@ export const attachGcsLifecycleEntityIdentity = async (
 
   const qualifiedType = qualifyGcsLifecycleEntityType(options.extensionKey, options.localType)
   const ownerType = options.ownerKind === 'agreement' ? 'fundingcaseagreement' : 'applicantrecipient'
+  if (options.ownerKind === 'proponent' && (!options.ownerAgencyColumn || !SQL_IDENTIFIER_PATTERN.test(options.ownerAgencyColumn))) {
+    throw new Error('Proponent lifecycle identity requires ownerAgencyColumn')
+  }
   const registered = await sql<{ registered: boolean }>`
     SELECT EXISTS (
       SELECT 1
@@ -203,6 +208,7 @@ export const attachGcsLifecycleEntityIdentity = async (
   const triggerName = lifecycleIdentityObjectName('trigger', qualifiedType, options.table)
   const ownerBindingTriggerName = lifecycleIdentityObjectName('owner_bind', qualifiedType, options.table)
   const ownerLockTriggerName = lifecycleIdentityObjectName('owner_lock', qualifiedType, options.table)
+  const agencyLockTriggerName = lifecycleIdentityObjectName('agency_lock', qualifiedType, options.table)
   const existingForeignKey = await sql<{ present: boolean }>`
     SELECT EXISTS (
       SELECT 1
@@ -242,7 +248,7 @@ export const attachGcsLifecycleEntityIdentity = async (
       ${sql.lit(qualifiedType)},
       ${sql.lit(idColumn)},
       ${sql.lit(ownerType)},
-      ${sql.lit(options.ownerIdColumn)}
+      ${sql.lit(options.ownerIdColumn)}${options.ownerAgencyColumn ? sql`, ${sql.lit(options.ownerAgencyColumn)}` : sql``}
     )
   `.execute(db)
   await sql`
@@ -254,6 +260,14 @@ export const attachGcsLifecycleEntityIdentity = async (
     BEFORE UPDATE OF ${sql.id(options.ownerIdColumn)} ON ${sql.id(schema, options.table)}
     FOR EACH ROW EXECUTE FUNCTION lock_extension_entity_owner_column(${sql.lit(options.ownerIdColumn)})
   `.execute(db)
+  if (options.ownerAgencyColumn) {
+    await sql`DROP TRIGGER IF EXISTS ${sql.id(agencyLockTriggerName)} ON ${sql.id(schema, options.table)}`.execute(db)
+    await sql`
+      CREATE TRIGGER ${sql.id(agencyLockTriggerName)}
+      BEFORE UPDATE OF ${sql.id(options.ownerAgencyColumn)} ON ${sql.id(schema, options.table)}
+      FOR EACH ROW EXECUTE FUNCTION lock_extension_entity_owner_column(${sql.lit(options.ownerAgencyColumn)})
+    `.execute(db)
+  }
 
   return qualifiedType
 }

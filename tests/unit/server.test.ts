@@ -212,6 +212,29 @@ describe('extension SDK server helpers', () => {
     }
   })
 
+  it('pins and locks the agency for a Proponent lifecycle identity', async () => {
+    const driver = new DummyDriver()
+    const db = createSecretTestDb(driver)
+    const executeQuery = vi.fn()
+      .mockResolvedValueOnce({ rows: [{ registered: true }] })
+      .mockResolvedValueOnce({ rows: [{ present: false }] })
+      .mockResolvedValue({ rows: [] })
+    vi.spyOn(driver, 'acquireConnection').mockResolvedValue({ executeQuery, streamQuery: vi.fn() } as never)
+    try {
+      await expect(attachGcsLifecycleEntityIdentity(db as unknown as Kysely<unknown>, {
+        extensionKey: 'sample-extension', localType: 'proponent-item', table: 'sample_proponent_item',
+        ownerKind: 'proponent', ownerIdColumn: 'proponent_id', ownerAgencyColumn: 'agency_id'
+      })).resolves.toBe('sample-extension:proponent-item')
+      const queries = executeQuery.mock.calls.map(([query]) => query.sql as string).join('\n')
+      expect(queries).toContain("'applicantrecipient',")
+      expect(queries).toContain("'proponent_id', 'agency_id'")
+      expect(queries).toContain('BEFORE UPDATE OF "agency_id"')
+      expect(queries).toContain("lock_extension_entity_owner_column('agency_id')")
+    } finally {
+      await db.destroy()
+    }
+  })
+
   it('reads assessment content from an exact canonical publication definition', () => {
     expect(getReviewSchemaEffectiveContent({
       definition: {
