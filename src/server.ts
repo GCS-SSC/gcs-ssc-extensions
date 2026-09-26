@@ -728,6 +728,8 @@ export interface GcsExtensionAgreementClaimLineItemCreateInput {
 
 export interface GcsExtensionAgreementClaimCreateInput {
   agreementId: string
+  /** Present for organization-originated imports; must remain linked to this Agreement. */
+  applicantRecipientId?: string
   streamId: string
   fiscalYearId: string
   isFinalForYear: boolean
@@ -754,6 +756,28 @@ export type GcsExtensionAgreementClaimCreateResult =
         | 'requested_status_not_draft'
     }
 
+/** One monthly amount on a current Agreement budget line. */
+export interface GcsExtensionAgreementForecastLineItemCreateInput {
+  budgetLineItemId: string
+  month: number
+  amount: GcsExtensionMoneyInput
+  currency: string
+  version: string
+}
+
+/** Imports one organization submission as a separate, inactive Draft Forecast. */
+export interface GcsExtensionAgreementForecastCreateInput {
+  agreementId: string
+  streamId: string
+  fiscalYearId: string
+  applicantRecipientId: string
+  lineItems: GcsExtensionAgreementForecastLineItemCreateInput[]
+}
+
+export type GcsExtensionAgreementForecastCreateResult =
+  | { status: 'created'; forecastId: string; lineItemIds: string[]; draftStatusId: string }
+  | { status: 'agreement_unavailable' | 'recipient_unavailable' | 'fiscal_year_unavailable' | 'draft_status_unavailable' }
+
 /** Host-owned authorization phases for extension transactions that acquire lifecycle locks. */
 export interface GcsExtensionWriteAuthorization {
   /** Locks and rebuilds the current user's grant graph before extension lifecycle locks. */
@@ -772,6 +796,18 @@ export interface GcsExtensionWriteAuthorization {
     db: unknown,
     input: GcsExtensionAgreementClaimCreateInput
   ) => Promise<GcsExtensionAgreementClaimCreateResult>
+  /** Freshly authorizes and atomically creates a Draft Forecast, all monthly lines, and creator assignment. */
+  createAgreementForecast?: (
+    db: unknown,
+    input: GcsExtensionAgreementForecastCreateInput
+  ) => Promise<GcsExtensionAgreementForecastCreateResult>
+}
+
+/** Host services offered to an enabled extension during the minute task. */
+export interface GcsExtensionScheduledMinutePayload {
+  db: unknown
+  createWriteAuthorization: (extensionKey: string, agencyId: string) => GcsExtensionWriteAuthorization
+  runForAgency: <T>(agencyId: string, operation: () => Promise<T>) => Promise<T>
 }
 
 export interface GcsExtensionAgreementOption {

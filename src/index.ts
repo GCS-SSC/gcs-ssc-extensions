@@ -5,7 +5,7 @@ export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './mess
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.3.2'
+export const GCS_EXTENSION_SDK_VERSION = '0.3.3'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -570,6 +570,7 @@ export type GcsExtensionHostCapability =
   | 'file-storage-provider'
   | 'agreement-number-provider'
   | 'configuration-access'
+  | 'scheduled-agreement-import'
   | 'agency-only-configuration'
   | 'audit-ownership'
 
