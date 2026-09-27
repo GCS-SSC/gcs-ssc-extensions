@@ -1,5 +1,8 @@
 import type {
   GcsExtensionEntityTabDefinition,
+  ExtensionEntityTabContext,
+  GcsProponentDescriptionsExtensionContext,
+  GcsExtensionSlotContext,
   GcsExtensionRbacRequirement,
   GcsExtensionServerEntityRbacRequirement
 } from '../src/index'
@@ -44,6 +47,26 @@ const validEntityTabDefinitions: GcsExtensionEntityTabDefinition[] = [
     rbac: { subject: 'agreement', action: 'read' }
   }
 ]
+
+const validProponentTabContext: Extract<ExtensionEntityTabContext, { target: 'proponent' }> = {
+  target: 'proponent', applicantRecipientId: '1', ownerType: 'applicantrecipient', ownerId: '1',
+  agencies: [{ agencyId: '2', nameEn: 'Agency', nameFr: 'Agence', config: {} }]
+}
+// @ts-expect-error -- Proponent tabs cannot expose a singular page-wide agency.
+validProponentTabContext.agencyId = '2'
+
+const validProponentSlotContext: GcsProponentDescriptionsExtensionContext = {
+  kind: 'proponent.descriptions', applicantRecipientId: '1',
+  agencies: [{ agencyId: '2', nameEn: 'Agency', nameFr: 'Agence', config: {} }], descriptions: { en: '', fr: '' }
+}
+// @ts-expect-error -- Proponent slots cannot expose a singular page-wide agency.
+validProponentSlotContext.agencyId = '2'
+
+// @ts-expect-error -- the generic slot fallback cannot hide a selected Proponent agency.
+const invalidProponentSlotContext: GcsExtensionSlotContext = {
+  kind: 'proponent.descriptions', applicantRecipientId: '1', agencyId: '2',
+  descriptions: { en: '', fr: '' }
+}
 
 // @ts-expect-error -- proponent tabs require the applicant_recipient subject.
 const mismatchedProponentEntityTab: GcsExtensionEntityTabDefinition = {

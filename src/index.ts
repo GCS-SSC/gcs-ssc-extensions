@@ -243,8 +243,20 @@ export interface GcsAgreementDescriptionsExtensionContext {
   setExtensionPayload?: (extensionKey: string, payloadKey: string, value: unknown) => void
 }
 
+/** Client context for app-wide Proponent descriptions after host agency resolution. */
+export interface GcsProponentDescriptionsExtensionContext {
+  kind: 'proponent.descriptions'
+  applicantRecipientId?: string
+  agencies: GcsProponentContributionAgency[]
+  descriptions: Record<GcsTextareaTargetLocale, string>
+  extensions?: Record<string, Record<string, unknown>>
+  setExtensionPayload?: (extensionKey: string, payloadKey: string, value: unknown) => void
+  agencyId?: never
+}
+
 export interface GcsExtensionUnknownSlotContext {
-  kind?: string
+  /** Named host contexts use their explicit SDK type so they cannot bypass its scope boundary. */
+  kind?: never
   [key: string]: unknown
 }
 
@@ -252,6 +264,7 @@ export type GcsExtensionSlotContext =
   | GcsTextareaExtensionContext
   | GcsAgreementProfileExtensionContext
   | GcsAgreementDescriptionsExtensionContext
+  | GcsProponentDescriptionsExtensionContext
   | GcsExtensionUnknownSlotContext
 
 export const GCS_TEXTAREA_TARGETS: GcsTextareaTargetDefinition[] = [
@@ -417,10 +430,13 @@ type GcsExtensionEntityTabAuthorization =
   | {
     target: 'proponent'
     rbac: GcsExtensionRbacRequirement & { subject: 'applicant_recipient' }
+    /** Require Agency read on each exposed agency because the tab calls Agency-scoped APIs. */
+    agencyReadRequired?: boolean
   }
   | {
     target: GcsExtensionAgreementEntityTabTarget
     rbac: GcsExtensionRbacRequirement & { subject: 'agreement' }
+    agencyReadRequired?: never
   }
 
 export type GcsExtensionEntityTabDefinition = GcsExtensionComponentDefinition & GcsExtensionEntityTabAuthorization & {
@@ -760,8 +776,28 @@ export type ExtensionEntityOwnerType =
   | 'fundingcaseagreementclaim'
   | 'fundingcaseagreementmonitor'
 
-export interface ExtensionEntityTabContext {
-  target: GcsExtensionEntityTabTarget
+export interface GcsProponentContributionAgency {
+  agencyId: string
+  nameEn: string
+  nameFr: string
+  config: GcsExtensionJsonConfig
+}
+
+export type ExtensionEntityTabContext = {
+  target: 'proponent'
+  applicantRecipientId: string
+  ownerType: 'applicantrecipient'
+  ownerId: string
+  /** Host-authorized, enabled agencies for this contribution; no page-wide agency selection. */
+  agencies: GcsProponentContributionAgency[]
+  agencyId?: never
+  streamId?: never
+  agreementId?: never
+  claimId?: never
+  monitorId?: never
+  scope?: never
+} | {
+  target: Exclude<GcsExtensionEntityTabTarget, 'proponent'>
   agencyId: string
   streamId?: string
   agreementId?: string
@@ -771,7 +807,6 @@ export interface ExtensionEntityTabContext {
   ownerType: ExtensionEntityOwnerType
   ownerId: string
   scope: ExtensionScope
-  rbac: GcsExtensionRbacRequirement
 }
 
 export interface GcsExtensionRuntimeContext {
