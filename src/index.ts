@@ -427,6 +427,8 @@ export type GcsExtensionEntityTabDefinition = GcsExtensionComponentDefinition & 
   id: string
   label: GcsExtensionBilingualLabel
   icon?: string
+  /** Host filters this tab using one agency extension JSON configuration value. */
+  agencyConfigVisibility?: { key: string; values: string[] }
 }
 
 export interface GcsExtensionCreateActionDefinition extends GcsExtensionComponentDefinition {
@@ -548,6 +550,7 @@ export interface GcsRegisteredExtensionLifecycleEntityDefinition extends Omit<
 
 export type GcsExtensionHostCapability =
   | 'agency-config'
+  | 'agency-workspace'
   | 'stream-config-modal'
   | 'stream-config-page'
   | 'entity-tabs'
@@ -579,6 +582,12 @@ export type GcsExtensionConfigurationAccess = 'contributor' | 'manager'
 
 export interface GcsExtensionAdminDefinition {
   agency?: GcsExtensionComponentDefinition
+  /** Dedicated Agency workspace; its component receives the selected tab as `section`. */
+  agencyWorkspace?: {
+    label: GcsExtensionBilingualLabel
+    icon?: string
+    tabs: Array<{ id: string; label: GcsExtensionBilingualLabel; icon?: string }>
+  }
   streamConfig?: GcsExtensionComponentDefinition
   streamConfigPage?: GcsExtensionComponentDefinition
 }
@@ -714,6 +723,7 @@ export interface GcsClientExtensionManifest {
   sdkVersion: string
   admin: {
     agency?: GcsClientExtensionComponentDefinition
+    agencyWorkspace?: GcsExtensionAdminDefinition['agencyWorkspace']
     streamConfig?: GcsClientExtensionComponentDefinition
     streamConfigPage?: GcsClientExtensionComponentDefinition
   }
