@@ -145,7 +145,7 @@ export interface GcsExtensionRbacRequirement {
   action: GcsExtensionRbacAction
 }
 
-export type GcsExtensionEntityTabTarget = 'agreement' | 'proponent' | 'claim' | 'monitor'
+export type GcsExtensionEntityTabTarget = 'agreement' | 'proponent' | 'claim' | 'monitor' | 'opportunity'
 
 export type GcsExtensionEntityType =
   | 'fundingopportunity'
@@ -424,7 +424,7 @@ export interface GcsExtensionSlotDefinition extends GcsExtensionComponentDefinit
   slot: GcsExtensionSlot
 }
 
-type GcsExtensionAgreementEntityTabTarget = Exclude<GcsExtensionEntityTabTarget, 'proponent'>
+type GcsExtensionAgreementEntityTabTarget = Exclude<GcsExtensionEntityTabTarget, 'proponent' | 'opportunity'>
 
 type GcsExtensionEntityTabAuthorization =
   | {
@@ -436,6 +436,11 @@ type GcsExtensionEntityTabAuthorization =
   | {
     target: GcsExtensionAgreementEntityTabTarget
     rbac: GcsExtensionRbacRequirement & { subject: 'agreement' }
+    agencyReadRequired?: never
+  }
+  | {
+    target: 'opportunity'
+    rbac: GcsExtensionRbacRequirement & { subject: 'transfer_payment' }
     agencyReadRequired?: never
   }
 
@@ -484,6 +489,10 @@ export type GcsExtensionServerEntityRbacRequirement =
       target: GcsExtensionAgreementEntityTabTarget
       param: string
     }
+  })
+  | (GcsExtensionRbacRequirement & {
+    subject: 'transfer_payment'
+    entity: { target: 'opportunity'; param: string }
   })
 
 export interface GcsExtensionServerHandlerDefinition {
@@ -771,6 +780,7 @@ export type ExtensionScope =
   }
 
 export type ExtensionEntityOwnerType =
+  | 'fundingopportunity'
   | 'fundingcaseagreement'
   | 'applicantrecipient'
   | 'fundingcaseagreementclaim'
@@ -795,6 +805,7 @@ export type ExtensionEntityTabContext = {
   agreementId?: never
   claimId?: never
   monitorId?: never
+  opportunityId?: never
   scope?: never
 } | {
   target: Exclude<GcsExtensionEntityTabTarget, 'proponent'>
@@ -804,6 +815,7 @@ export type ExtensionEntityTabContext = {
   applicantRecipientId?: string
   claimId?: string
   monitorId?: string
+  opportunityId?: string
   ownerType: ExtensionEntityOwnerType
   ownerId: string
   scope: ExtensionScope

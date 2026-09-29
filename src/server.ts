@@ -786,6 +786,16 @@ export interface GcsExtensionWriteAuthorization {
   authorizeCurrentScope?: (db: unknown) => Promise<void>
   /** Compatibility alias for extensions built against the original entity-only write protocol. */
   authorizeCurrentEntity: (db: unknown) => Promise<void>
+  /** Reads an opportunity after freshly authorizing its owning Program and route scope. */
+  projectFundingOpportunity?: (db: unknown, opportunityId: string) => Promise<{
+    sourceSystem: string; foreignSystemId: string; opportunityId: string; active: boolean; editable: boolean
+    agency: { id: string; nameEn: string; nameFr: string }
+    program: { id: string; nameEn: string; nameFr: string }
+    stream: { id: string; nameEn: string; nameFr: string }
+    streams: Array<{ id: string; nameEn: string; nameFr: string }>
+    nameEn: string; nameFr: string; objectiveEn: string; objectiveFr: string
+    startDate: string; startTime: string; endDate: string; endTime: string
+  } | null>
   /** Locks, re-resolves, and freshly authorizes an agreement in the owning transaction. */
   lockAndAuthorizeAgreement?: (
     db: unknown,
