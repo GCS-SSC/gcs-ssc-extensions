@@ -198,7 +198,9 @@ const createExtensionTestComponent = (name: GcsExtensionHostComponentName): Comp
 
 const hostComponentNames: GcsExtensionHostComponentName[] = [
   'CommonEntityEditorWorkspace',
+  'CommonEntityHero',
   'CommonAssessmentSchemaAccordionSection',
+  'CommonAssessmentSchemaPageSection',
   'CommonCompletionSection',
   'CommonResourceLayoutCard',
   'CommonRouteTabs',

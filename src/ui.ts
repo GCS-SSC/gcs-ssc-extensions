@@ -82,7 +82,9 @@ export interface GcsExtensionFetchResult<T> {
 
 export type GcsExtensionHostComponentName =
   | 'CommonEntityEditorWorkspace'
+  | 'CommonEntityHero'
   | 'CommonAssessmentSchemaAccordionSection'
+  | 'CommonAssessmentSchemaPageSection'
   | 'CommonCompletionSection'
   | 'CommonResourceLayoutCard'
   | 'CommonRouteTabs'
@@ -170,7 +172,47 @@ const createExtensionHostComponent = <Props extends object = Record<string, unkn
   })
 
 export const ExtensionEntityEditorWorkspace = createExtensionHostComponent('CommonEntityEditorWorkspace')
-export const ExtensionAssessmentSchemaAccordionSection = createExtensionHostComponent('CommonAssessmentSchemaAccordionSection')
+export interface GcsExtensionEntityHeroProps {
+  isCollapsed?: boolean
+  icon?: string
+  iconText?: string
+  title: string
+  description?: string
+  metaItems?: Array<string | number | null | undefined>
+  badges?: Array<{
+    enumName?: string
+    status?: string
+    variant?: string
+    label?: string
+    uiVariant?: 'solid' | 'outline' | 'soft' | 'subtle'
+    prefixLabel?: string
+  }>
+  actions?: Array<{
+    label: string
+    icon?: string
+    color?: 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral'
+    variant?: 'solid' | 'outline' | 'soft' | 'subtle' | 'ghost' | 'link'
+    loading?: boolean
+    disabled?: boolean
+    onClick: () => void
+  }>
+}
+export const ExtensionEntityHero = createExtensionHostComponent<GcsExtensionEntityHeroProps>('CommonEntityHero')
+export interface GcsExtensionAssessmentSchemaAccordionSectionProps {
+  title: string
+  defaultOpen?: boolean
+  level?: 'top' | 'sub'
+  persistenceKey?: string
+}
+export const ExtensionAssessmentSchemaAccordionSection = createExtensionHostComponent<GcsExtensionAssessmentSchemaAccordionSectionProps>('CommonAssessmentSchemaAccordionSection')
+export interface GcsExtensionAssessmentSchemaPageSectionProps {
+  sectionId: string
+  title: string
+  extendIndicator?: boolean
+  hideTitleIndicator?: boolean
+  compact?: boolean
+}
+export const ExtensionAssessmentSchemaPageSection = createExtensionHostComponent<GcsExtensionAssessmentSchemaPageSectionProps>('CommonAssessmentSchemaPageSection')
 export interface GcsExtensionCompletionSectionProps {
   entityType: string
   entityId: string

@@ -9,7 +9,9 @@ import {
   createExtensionApiClient,
   createHostApiClient,
   createHostLifecycleApiClient,
+  ExtensionAssessmentSchemaPageSection,
   ExtensionCompletionSection,
+  ExtensionEntityHero,
   ExtensionStatusSelect,
   ExtensionWorkflowSection,
   setExtensionUiRuntime,
@@ -155,8 +157,12 @@ describe('extension SDK UI runtime adapters', () => {
 
     expect(ExtensionStatusSelect).toBeTruthy()
     expect(ExtensionCompletionSection).toBeTruthy()
+    expect(ExtensionEntityHero).toBeTruthy()
+    expect(ExtensionAssessmentSchemaPageSection).toBeTruthy()
     expect(ExtensionWorkflowSection).toBeTruthy()
     expect(runtime.components.CommonCompletionSection).toBeTruthy()
+    expect(runtime.components.CommonEntityHero).toBeTruthy()
+    expect(runtime.components.CommonAssessmentSchemaPageSection).toBeTruthy()
     expect(runtime.components.CommonWorkflowSection).toBeTruthy()
     expect(runtime.components.CommonStatusSelect).toBeTruthy()
 

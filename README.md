@@ -34,6 +34,8 @@ The host application may consume this package through a local workspace while SD
 - `@gcs-ssc/extensions/testing` exposes test-only helpers for extension repositories.
 - `@gcs-ssc/extensions/nuxt` exposes minimal ambient Nuxt host globals for standalone extension typechecking.
 - The Nuxt entry point declares host-provided globals for typechecking only. Extension UI should import wrappers from `@gcs-ssc/extensions/ui` instead of using host component names directly.
+- `ExtensionEntityHero` exposes the standard detail-page hero through the UI runtime. Its public props include a title, optional description and icon, metadata, and button actions with `onClick`; extensions use this wrapper rather than importing `CommonEntityHero` from the host.
+- `ExtensionAssessmentSchemaPageSection` exposes the review-schema section layout and blue title indicator. Pass `sectionId` and `title`; use its default slot for content and `actions` slot for header actions. Pair it with `ExtensionAssessmentSchemaAccordionSection` for inline schema editing.
 
 ## Import Rules
 
