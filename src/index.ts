@@ -599,6 +599,7 @@ export type GcsExtensionHostCapability =
   | 'agreement-number-provider'
   | 'configuration-access'
   | 'scheduled-agreement-import'
+  | 'scheduled-intake-import'
   | 'agency-only-configuration'
   | 'audit-ownership'
 

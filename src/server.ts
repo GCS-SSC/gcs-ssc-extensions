@@ -778,6 +778,25 @@ export type GcsExtensionAgreementForecastCreateResult =
   | { status: 'created'; forecastId: string; lineItemIds: string[]; draftStatusId: string }
   | { status: 'agreement_unavailable' | 'recipient_unavailable' | 'fiscal_year_unavailable' | 'draft_status_unavailable' }
 
+/** Immutable Portal application evidence for a group-queued host Intake. */
+export interface GcsExtensionFundingCaseIntakeCreateInput {
+  intakeId?: string | number
+  opportunityId: string | number
+  applicantRecipientId: string | number
+  groupId: string | number
+  applicationId: string | number
+  application: Record<string, JsonValue>
+  sourceSystem: string
+  sourceSubmissionId: string
+  sourceExport: Record<string, JsonValue>
+}
+
+export type GcsExtensionFundingCaseIntakeCreateResult =
+  | { status: 'created'; intakeId: string; draftStatusId: string }
+  | { status: 'already_imported'; intakeId: string }
+  | { status: 'opportunity_unavailable' | 'recipient_unavailable' | 'group_unavailable'
+      | 'intake_id_conflict' | 'source_conflict' | 'application_id_conflict' | 'draft_status_unavailable' }
+
 /** Host-owned authorization phases for extension transactions that acquire lifecycle locks. */
 export interface GcsExtensionWriteAuthorization {
   /** Locks and rebuilds the current user's grant graph before extension lifecycle locks. */
@@ -786,6 +805,11 @@ export interface GcsExtensionWriteAuthorization {
   authorizeCurrentScope?: (db: unknown) => Promise<void>
   /** Compatibility alias for extensions built against the original entity-only write protocol. */
   authorizeCurrentEntity: (db: unknown) => Promise<void>
+  /** Imports an immutable application into an Agency group within the owning transaction. */
+  createFundingCaseIntake?: (
+    db: unknown,
+    input: GcsExtensionFundingCaseIntakeCreateInput
+  ) => Promise<GcsExtensionFundingCaseIntakeCreateResult>
   /** Reads an opportunity after freshly authorizing its owning Program and route scope. */
   projectFundingOpportunity?: (db: unknown, opportunityId: string) => Promise<{
     sourceSystem: string; foreignSystemId: string; opportunityId: string; active: boolean; editable: boolean
