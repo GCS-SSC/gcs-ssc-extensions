@@ -161,6 +161,7 @@ export type GcsExtensionEntityType =
   | 'fundingclaimreconcile'
   | 'fundingcaseforecast'
   | 'fundingcasepayment'
+  | 'fundingcasejournalvoucher'
   | 'fundingcaserecommendation'
 
 export interface GcsExtensionEntityDefinition {
@@ -305,6 +306,7 @@ export const GCS_EXTENSION_ENTITIES: GcsExtensionEntityDefinition[] = [
   { type: 'fundingcasemonitor', label: { en: 'Monitors', fr: 'Surveillances' } },
   { type: 'fundingclaimreconcile', label: { en: 'Claims', fr: 'Réclamations' } },
   { type: 'fundingcaseforecast', label: { en: 'Forecasts', fr: 'Prévisions' } },
+  { type: 'fundingcasejournalvoucher', label: { en: 'Journal Vouchers', fr: 'Pièces de journal' } },
   { type: 'fundingcasepayment', label: { en: 'Payments', fr: 'Paiements' } },
   { type: 'fundingcaserecommendation', label: { en: 'Case Recommendations', fr: 'Recommandations de dossier' } }
 ]
