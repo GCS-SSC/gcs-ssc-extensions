@@ -890,9 +890,9 @@ export interface GcsExtensionAgreementAccess {
 
 /** Host-owned capacity read, bound to the authorized Agreement and the active database/transaction. */
 export interface GcsExtensionAgreementFinancials {
-  /** Actual cumulative accounting through a stable fiscal year/period; never a sum of protective paid floors. */
+  /** Actual cumulative accounting through a stable fiscal year/period; optional currency must match the owning Agreement; omission derives its denomination. */
   getRecordedPaidToDate: (input: {
-    fiscalYearId: string; periodEnd: number; excludePaymentId?: string
+    fiscalYearId: string; periodEnd: number; excludePaymentId?: string; currency?: string
   }) => Promise<{ agreementId: string; cashPaidAmount: string; jvEffectAmount: string;
     correctionAmount: string; recordedPaidAmount: string; currency: string | null }>
   /** Separately attributed cash, JV and effective Correction entries by fiscal year and month. */
@@ -902,13 +902,14 @@ export interface GcsExtensionAgreementFinancials {
       agencyFiscalYearId: string; fiscalYearId: string; fiscalYearOrder: string; fiscalYearLabel: string;
       month: number; currency: string; amount: string }>
   }>
-  getCommitmentLinePaymentCoverage: (input: { commitmentLineId: string; excludePaymentId?: string }) => Promise<{ paidAmount: string }>
-  validatePaymentAllocations: (input: { allocations: Array<{ commitmentLineId: string; amount: string }>; excludePaymentId?: string }) => Promise<boolean>
+  getCommitmentLinePaymentCoverage: (input: { commitmentLineId: string; excludePaymentId?: string; currency?: string }) => Promise<{ paidAmount: string }>
+  validatePaymentAllocations: (input: { allocations: Array<{ commitmentLineId: string; amount: string }>; excludePaymentId?: string; currency?: string }) => Promise<boolean>
   /** Stable Agreement budget-year ID, Agency commitment-type ID, and optional same-Agreement Payment exclusion. */
   getCommitmentPaymentCapacity: (input: {
     fiscalYearId: string
     commitmentTypeId: string
     excludePaymentId?: string
+    currency?: string
   }) => Promise<{ agreementId: string; capacityAmount: string }>
 }
 
