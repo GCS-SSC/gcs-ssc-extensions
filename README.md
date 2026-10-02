@@ -12,6 +12,16 @@ Payment amount calculators emit `GcsPaymentAmountCalculatorResult` from `@gcs-ss
 
 Finite JavaScript numbers remain accepted only for backwards compatibility. The host accepts them only when they round-trip to exact cents within the safe integer range. New extensions must not use numbers for money, and must not round, truncate, or convert money through `Number` before calling a host write contract.
 
+## Agreement payment capacity (SDK 0.3.5)
+
+Declare `agreement-payment-capacity` in `requiredHostCapabilities`. Authorized Agreement routes and host create-operation/payment-mutation hooks receive `agreementFinancials`. Require it with `requireGcsExtensionAgreementFinancials(context)` from the server entry point; call `getCommitmentPaymentCapacity({ fiscalYearId, commitmentTypeId, excludePaymentId? })`.
+
+The host binds this read to the canonical Agreement and its active database or write transaction. `fiscalYearId` is the stable Agreement budget fiscal-year ID; `commitmentTypeId` is the Agency commitment-type ID. An excluded Payment must belong to the bound Agreement. The result is `{ agreementId, capacityAmount }`, where capacity is canonical, exact, nonnegative decimal text. Aggregate capacity can exceed one persisted monetary row's range; consume it as an aggregate, never through `Number`.
+
+`getCommitmentLinePaymentCoverage({ commitmentLineId, excludePaymentId? })` returns the canonical post-JV `paidAmount` for a line in the bound Agreement. `validatePaymentAllocations({ allocations: [{ commitmentLineId, amount }], excludePaymentId? })` validates proposed generated lines together, enforcing both exact-row limits and shared coding pools. Validate the batch inside the protected write transaction before inserting generated lines; individual duplicate-row ceilings cannot be summed.
+
+The host owns active commitment selection, exact Payment coverage, successful JV/reversal effects, Agency chart matching, and duplicate coding pools. Route reads refresh Agreement Viewer authority and extension enablement. This projection returns no JV or Payment records, grants no source API access, and performs no write or posting. Protected writes continue to use the normal locked host transaction. Do not fall back to a local JV calculation when the capability is absent.
+
 ## Installation
 
 Use the published or tagged SDK dependency from standalone extension packages:

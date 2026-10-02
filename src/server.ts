@@ -495,6 +495,7 @@ export interface GcsExtensionAgreementPaymentMutationGuardContext {
   currentStatusId?: string
   nextStatusId?: string
   changes?: Record<string, unknown>
+  agreementFinancials?: GcsExtensionAgreementFinancials
 }
 
 export type GcsExtensionAgreementPaymentMutationGuardHandler = (
@@ -583,6 +584,7 @@ export interface GcsExtensionCreateOperationContext {
   config: GcsExtensionJsonConfig
   validatedBody: Record<string, unknown>
   createdRecord?: Record<string, unknown>
+  agreementFinancials?: GcsExtensionAgreementFinancials
 }
 
 export type GcsExtensionCreateOperationResult =
@@ -668,6 +670,7 @@ export interface GcsExtensionRouteEvent {
       extensionKey?: string
       config: GcsExtensionJsonConfig | unknown
       writeAuthorization?: GcsExtensionWriteAuthorization
+      agreementFinancials?: GcsExtensionAgreementFinancials
       agreementAccess?: GcsExtensionAgreementAccess
       entity?: Record<string, unknown>
       stream?: Record<string, unknown>
@@ -689,6 +692,7 @@ export interface GcsExtensionRouteContext {
   agency?: Record<string, unknown>
   authorizedScope?: ExtensionScope
   writeAuthorization?: GcsExtensionWriteAuthorization
+  agreementFinancials?: GcsExtensionAgreementFinancials
   agreementAccess?: GcsExtensionAgreementAccess
   readBody: <T = unknown>() => Promise<T>
   getHeader: (name: string) => string | undefined
@@ -858,6 +862,28 @@ export interface GcsExtensionAgreementAccess {
   ) => Promise<GcsExtensionAgreementOption[]>
 }
 
+/** Host-owned capacity read, bound to the authorized Agreement and the active database/transaction. */
+export interface GcsExtensionAgreementFinancials {
+  getCommitmentLinePaymentCoverage: (input: { commitmentLineId: string; excludePaymentId?: string }) => Promise<{ paidAmount: string }>
+  validatePaymentAllocations: (input: { allocations: Array<{ commitmentLineId: string; amount: string }>; excludePaymentId?: string }) => Promise<boolean>
+  /** Stable Agreement budget-year ID, Agency commitment-type ID, and optional same-Agreement Payment exclusion. */
+  getCommitmentPaymentCapacity: (input: {
+    fiscalYearId: string
+    commitmentTypeId: string
+    excludePaymentId?: string
+  }) => Promise<{ agreementId: string; capacityAmount: string }>
+}
+
+/** Requires the declared `agreement-payment-capacity` capability without a local financial fallback. */
+export const requireGcsExtensionAgreementFinancials = (
+  context: { agreementFinancials?: GcsExtensionAgreementFinancials }
+): GcsExtensionAgreementFinancials => {
+  if (!context.agreementFinancials) {
+    throw new Error('The agreement-payment-capacity host capability is unavailable in this context.')
+  }
+  return context.agreementFinancials
+}
+
 export type GcsExtensionRawRouteHandler<T = unknown> = (
   event: GcsExtensionRouteEvent
 ) => T | Promise<T>
@@ -886,6 +912,9 @@ export const createGcsExtensionRouteContext = (event: GcsExtensionRouteEvent): G
   }
   if (event.context.gcsExtension?.writeAuthorization) {
     context.writeAuthorization = event.context.gcsExtension.writeAuthorization
+  }
+  if (event.context.gcsExtension?.agreementFinancials) {
+    context.agreementFinancials = event.context.gcsExtension.agreementFinancials
   }
   if (event.context.gcsExtension?.agreementAccess) {
     context.agreementAccess = event.context.gcsExtension.agreementAccess

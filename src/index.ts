@@ -5,7 +5,7 @@ export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './mess
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.3.4'
+export const GCS_EXTENSION_SDK_VERSION = '0.3.5'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -584,6 +584,7 @@ export type GcsExtensionHostCapability =
   | 'textarea-slots'
   | 'create-actions'
   | 'payment-amount-calculators'
+  | 'agreement-payment-capacity'
   | 'server-handlers'
   | 'server-handler-rbac'
   | 'migrations'

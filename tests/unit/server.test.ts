@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   attachGcsLifecycleEntityIdentity,
   createGcsExtensionRouteContext,
+  requireGcsExtensionAgreementFinancials,
   defineGcsFileStorageMetadataValidator,
   defineGcsFileStorageProviderAdapter,
   GCS_FILE_STORAGE_PROVIDER_OBJECT_ID_MAX_BYTES,
@@ -345,6 +346,11 @@ describe('extension SDK server helpers', () => {
 
     expect(createGcsExtensionRouteContext(event).writeAuthorization).toBe(writeAuthorization)
     expect(createGcsExtensionRouteContext(event).agreementAccess).toBe(agreementAccess)
+    expect(() => requireGcsExtensionAgreementFinancials(createGcsExtensionRouteContext(event))).toThrow('agreement-payment-capacity')
+    const financials = { getCommitmentPaymentCapacity: async () => ({ agreementId: '100', capacityAmount: '60.00' }),
+      getCommitmentLinePaymentCoverage: vi.fn(), validatePaymentAllocations: vi.fn() }
+    event.context.gcsExtension!.agreementFinancials = financials
+    expect(requireGcsExtensionAgreementFinancials(createGcsExtensionRouteContext(event))).toBe(financials)
     expect(createGcsExtensionRouteContext(event).writeAuthorization?.createAgreementClaim).toBe(
       writeAuthorization.createAgreementClaim
     )
