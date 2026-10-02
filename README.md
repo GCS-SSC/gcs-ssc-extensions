@@ -12,7 +12,7 @@ Payment amount calculators emit `GcsPaymentAmountCalculatorResult` from `@gcs-ss
 
 Finite JavaScript numbers remain accepted only for backwards compatibility. The host accepts them only when they round-trip to exact cents within the safe integer range. New extensions must not use numbers for money, and must not round, truncate, or convert money through `Number` before calling a host write contract.
 
-## Agreement payment capacity (SDK 0.3.5)
+## Agreement financial projections (SDK 0.3.6)
 
 Declare `agreement-payment-capacity` in `requiredHostCapabilities`. Authorized Agreement routes and host create-operation/payment-mutation hooks receive `agreementFinancials`. Require it with `requireGcsExtensionAgreementFinancials(context)` from the server entry point; call `getCommitmentPaymentCapacity({ fiscalYearId, commitmentTypeId, excludePaymentId? })`.
 
@@ -20,7 +20,15 @@ The host binds this read to the canonical Agreement and its active database or w
 
 `getCommitmentLinePaymentCoverage({ commitmentLineId, excludePaymentId? })` returns the canonical post-JV `paidAmount` for a line in the bound Agreement. `validatePaymentAllocations({ allocations: [{ commitmentLineId, amount }], excludePaymentId? })` validates proposed generated lines together, enforcing both exact-row limits and shared coding pools. Validate the batch inside the protected write transaction before inserting generated lines; individual duplicate-row ceilings cannot be summed.
 
-The host owns active commitment selection, exact Payment coverage, successful JV/reversal effects, Agency chart matching, and duplicate coding pools. Route reads refresh Agreement Viewer authority and extension enablement. This projection returns no JV or Payment records, grants no source API access, and performs no write or posting. Protected writes continue to use the normal locked host transaction. Do not fall back to a local JV calculation when the capability is absent.
+The host owns active commitment selection, exact Payment coverage, successful JV/reversal effects, posted Correction effects, Agency chart matching, and duplicate coding pools. Route reads refresh Agreement Viewer authority and extension enablement. This projection grants no source API access and performs no write or posting. Protected writes continue to use the normal locked host transaction. Do not fall back to a local accounting calculation when the capability is absent.
+
+`getRecordedPaidToDate({ fiscalYearId, periodEnd, excludePaymentId? })` supplies cumulative `cashPaidAmount`, `jvEffectAmount`, `correctionAmount`, and `recordedPaidAmount`, plus `currency` (or `null` when empty). `periodEnd` is the fiscal month index, April = 0 through March = 11. Earlier fiscal years contribute to cumulative totals. All amounts are exact decimal strings; protective per-line capacity floors never enter paid-to-date totals. Ambiguous contributing currencies fail explicitly. Excluding a recalculated Payment removes its cash and JV effects while independent posted Corrections remain effective.
+
+`getPaidAccountingProjection({ excludePaymentId?, paymentMode? })` returns retained accounting entries identified as `cash_payment`, `journal_voucher`, or `correction`, with currency, stable Agreement fiscal year, Agency fiscal year, period and exact amount. `paymentMode: 'finalized'` excludes denied and unresolved outcomes while retaining supported historical terminal Payments without Completion evidence. The default preserves active Payment reservations for payment calculations. Only successfully posted Corrections contribute in either mode; fiscal closing switches do not govern Corrections. Consumers must group entries by currency before totaling.
+
+Extensions that use either cumulative method require SDK `^0.3.6` and the existing `agreement-payment-capacity` capability. The earlier capacity methods remain compatible with SDK 0.3.5 callers. Automated Payments uses cumulative corrected recorded paid and shared capacity; allocation extensions keep immutable weights and validate generated line batches through the host.
+
+Enabled integrations may register a Correction outcome handler under `extension-lifecycle-hooks` to stage package-owned notification delivery in the terminal transaction. Delivery workers run after commit; see [Correction outcome integration](docs/correction-outcomes.md).
 
 ## Installation
 

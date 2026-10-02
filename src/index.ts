@@ -5,7 +5,7 @@ export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './mess
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.3.5'
+export const GCS_EXTENSION_SDK_VERSION = '0.3.6'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -162,6 +162,7 @@ export type GcsExtensionEntityType =
   | 'fundingcaseforecast'
   | 'fundingcasepayment'
   | 'fundingcasejournalvoucher'
+  | 'fundingcasecorrection'
   | 'fundingcaserecommendation'
 
 export interface GcsExtensionEntityDefinition {
@@ -306,6 +307,7 @@ export const GCS_EXTENSION_ENTITIES: GcsExtensionEntityDefinition[] = [
   { type: 'fundingcasemonitor', label: { en: 'Monitors', fr: 'Surveillances' } },
   { type: 'fundingclaimreconcile', label: { en: 'Claims', fr: 'Réclamations' } },
   { type: 'fundingcaseforecast', label: { en: 'Forecasts', fr: 'Prévisions' } },
+  { type: 'fundingcasecorrection', label: { en: 'Corrections', fr: 'Corrections' } },
   { type: 'fundingcasejournalvoucher', label: { en: 'Journal Vouchers', fr: 'Pièces de journal' } },
   { type: 'fundingcasepayment', label: { en: 'Payments', fr: 'Paiements' } },
   { type: 'fundingcaserecommendation', label: { en: 'Case Recommendations', fr: 'Recommandations de dossier' } }

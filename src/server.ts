@@ -387,6 +387,28 @@ export const GCS_EXTENSION_STATUS_REFERENCE_GUARD_HOOK
   = 'gcs:extension:status-reference-guard'
 export const GCS_EXTENSION_CONFIGURATION_GUARD_HOOK
   = 'gcs:extension:configuration-guard'
+export const GCS_EXTENSION_CORRECTION_OUTCOME_HOOK = 'gcs:extension:correction-outcome'
+
+/** Transactional staging boundary for configured, enabled outcome integrations. */
+export interface GcsExtensionCorrectionOutcomeContext {
+  extensionKey: string
+  db: Transaction<unknown>
+  config: GcsExtensionJsonConfig
+  agencyId: string
+  streamId: string
+  agreementId: string
+  correctionId: string
+  reference: string
+  outcome: 'posted' | 'denied' | 'failed' | 'cancelled'
+  runtimeId: string | null
+  decisionCommonUserId: string | null
+  recordedAt: string
+  notifications: Array<{ notificationId: string; commonUserId: string }>
+}
+
+export type GcsExtensionCorrectionOutcomeHandler = (
+  context: GcsExtensionCorrectionOutcomeContext
+) => Promise<void> | void
 
 export type GcsExtensionDisableScope = 'agency' | 'stream'
 
@@ -615,6 +637,10 @@ export interface GcsExtensionCreateOperationHookPayload {
 type NitroHookRegistrar = {
   hooks: {
     hook: {
+      (
+        name: typeof GCS_EXTENSION_CORRECTION_OUTCOME_HOOK,
+        handler: GcsExtensionCorrectionOutcomeHandler
+      ): void
       (
         name: typeof GCS_EXTENSION_CREATE_OPERATION_HOOK,
         handler: (payload: GcsExtensionCreateOperationHookPayload) => Promise<void> | void
@@ -864,6 +890,18 @@ export interface GcsExtensionAgreementAccess {
 
 /** Host-owned capacity read, bound to the authorized Agreement and the active database/transaction. */
 export interface GcsExtensionAgreementFinancials {
+  /** Actual cumulative accounting through a stable fiscal year/period; never a sum of protective paid floors. */
+  getRecordedPaidToDate: (input: {
+    fiscalYearId: string; periodEnd: number; excludePaymentId?: string
+  }) => Promise<{ agreementId: string; cashPaidAmount: string; jvEffectAmount: string;
+    correctionAmount: string; recordedPaidAmount: string; currency: string | null }>
+  /** Separately attributed cash, JV and effective Correction entries by fiscal year and month. */
+  getPaidAccountingProjection: (input?: { excludePaymentId?: string }) => Promise<{
+    agreementId: string
+    entries: Array<{ id: string; kind: 'cash_payment' | 'journal_voucher' | 'correction';
+      agencyFiscalYearId: string; fiscalYearId: string; fiscalYearOrder: string; fiscalYearLabel: string;
+      month: number; currency: string; amount: string }>
+  }>
   getCommitmentLinePaymentCoverage: (input: { commitmentLineId: string; excludePaymentId?: string }) => Promise<{ paidAmount: string }>
   validatePaymentAllocations: (input: { allocations: Array<{ commitmentLineId: string; amount: string }>; excludePaymentId?: string }) => Promise<boolean>
   /** Stable Agreement budget-year ID, Agency commitment-type ID, and optional same-Agreement Payment exclusion. */
@@ -1142,6 +1180,22 @@ export const registerGcsExtensionCreateOperationHandler = (
         result
       })
     }
+  })
+}
+
+/** Registers enabled Correction outcome staging; handlers persist their outbox in the supplied transaction. */
+export const registerGcsExtensionCorrectionOutcomeHandler = (
+  extensionKey: string,
+  handler: GcsExtensionCorrectionOutcomeHandler,
+  nitroApp?: NitroHookRegistrar
+) => {
+  const resolvedNitroApp = nitroApp ?? (globalThis as typeof globalThis & {
+    useNitroApp?: () => NitroHookRegistrar
+  }).useNitroApp?.()
+  if (!resolvedNitroApp) throw new Error('GCS Correction outcome handlers must be registered from a Nitro plugin.')
+  resolvedNitroApp.hooks.hook(GCS_EXTENSION_CORRECTION_OUTCOME_HOOK, async payload => {
+    if (payload.extensionKey !== extensionKey) return
+    await handler(payload)
   })
 }
 
