@@ -758,8 +758,8 @@ export interface GcsExtensionAgreementClaimLineItemCreateInput {
 
 export interface GcsExtensionAgreementClaimCreateInput {
   agreementId: string
-  /** Present for organization-originated imports; must remain linked to this Agreement. */
-  applicantRecipientId?: string
+  /** Required submitting Proponent; must be active and linked to this Agreement. */
+  applicantRecipientId: string
   streamId: string
   fiscalYearId: string
   isFinalForYear: boolean
@@ -782,6 +782,7 @@ export type GcsExtensionAgreementClaimCreateResult =
       status:
         | 'agreement_unavailable'
         | 'fiscal_year_unavailable'
+        | 'applicant_recipient_unavailable'
         | 'requested_status_unavailable'
         | 'requested_status_not_draft'
     }
@@ -894,11 +895,15 @@ export interface GcsExtensionAgreementFinancials {
   getRecordedPaidToDate: (input: {
     fiscalYearId: string; periodEnd: number; excludePaymentId?: string; currency?: string
   }) => Promise<{ agreementId: string; cashPaidAmount: string; jvEffectAmount: string;
-    correctionAmount: string; recordedPaidAmount: string; currency: string | null }>
+    correctionAmount: string; accountReceivableRecoveryAmount: string; recordedPaidAmount: string; currency: string | null }>
+  /** Signed successful Credit Memo effects on approved Claim consumption in its original fiscal period. */
+  getClaimRecoveryProjection: () => Promise<{ agreementId: string; entries: Array<{
+    claimLineId: string | null; fiscalYearOrder: string; month: number; currency: string; amount: string
+  }> }>
   /** Separately attributed cash, JV and effective Correction entries by fiscal year and month. */
   getPaidAccountingProjection: (input?: { excludePaymentId?: string }) => Promise<{
     agreementId: string
-    entries: Array<{ id: string; kind: 'cash_payment' | 'journal_voucher' | 'correction';
+    entries: Array<{ id: string; kind: 'cash_payment' | 'journal_voucher' | 'correction' | 'account_receivable_recovery';
       agencyFiscalYearId: string; fiscalYearId: string; fiscalYearOrder: string; fiscalYearLabel: string;
       month: number; currency: string; amount: string }>
   }>
