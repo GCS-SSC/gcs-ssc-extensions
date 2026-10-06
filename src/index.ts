@@ -5,7 +5,7 @@ export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './mess
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.3.7'
+export const GCS_EXTENSION_SDK_VERSION = '0.3.8'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -122,6 +122,7 @@ export const throwFetchResponseError = async (response: Response): Promise<never
 
 export type GcsExtensionSlot =
   | 'textarea.after'
+  | 'bilingual-field.after'
   | 'agreement.descriptions.after'
   | 'agreement.profile.classification.fields'
   | 'agreement.profile.profile.fields'
@@ -220,6 +221,29 @@ export interface GcsTextareaTargetContext {
   setExtensionPayload?: (extensionKey: string, payloadKey: string, value: unknown) => void
 }
 
+/** A live text control deliberately exposed by the host; never a persisted-data API. */
+export interface GcsBilingualTextField {
+  path: string
+  locale: 'en' | 'fr'
+  getText: () => string
+  isEditable: () => boolean
+}
+
+/** One registered bilingual pair. Applying text checks the original values and form identity. */
+export interface GcsBilingualFieldExtensionContext {
+  kind: 'bilingual-field'
+  source: GcsBilingualTextField
+  target: GcsBilingualTextField
+  /** Returns false after navigation, control removal, scope changes or intervening edits. */
+  applyTranslation: (text: string, expected: { source: string; target: string }) => boolean
+  agencyId?: string
+  streamId?: string
+  agreementId?: string
+  applicantRecipientId?: string
+  /** App-wide Proponents carry separately authorized agency choices. */
+  agencies?: GcsProponentContributionAgency[]
+}
+
 export interface GcsTextareaExtensionContext {
   textarea: GcsTextareaTargetContext
 }
@@ -264,6 +288,7 @@ export interface GcsExtensionUnknownSlotContext {
 
 export type GcsExtensionSlotContext =
   | GcsTextareaExtensionContext
+  | GcsBilingualFieldExtensionContext
   | GcsAgreementProfileExtensionContext
   | GcsAgreementDescriptionsExtensionContext
   | GcsProponentDescriptionsExtensionContext
@@ -584,6 +609,7 @@ export type GcsExtensionHostCapability =
   | 'stream-config-page'
   | 'entity-tabs'
   | 'textarea-slots'
+  | 'bilingual-field-slots'
   | 'create-actions'
   | 'payment-amount-calculators'
   | 'agreement-payment-capacity'

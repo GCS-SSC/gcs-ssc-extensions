@@ -863,3 +863,19 @@ global data. Parent references must name a table declared by the same extension;
 are rejected. Include tests for every table and every supported owner variant in
 the extension's own test suite. These declarations do not grant authorization to
 read or mutate the owning business records.
+
+### Editable bilingual field pairs (0.3.8)
+
+Declare `bilingual-field-slots` and contribute to `bilingual-field.after` to
+receive `GcsBilingualFieldExtensionContext`. The host registers matching mounted
+plain text controls within a form and supplies the source/target locale, schema
+paths, live `getText()`/`isEditable()` accessors, and
+`applyTranslation(text, { source, target })`. Capture both texts before starting
+async work; the host rejects updates after intervening edits, scope/form changes,
+control removal or loss of editability. Updates affect the form draft only.
+Normal validation and authorized saving remain host owned.
+
+Configuration for this slot is `{ agency, stream? }`, each containing the owning
+extension’s enabled JSON configuration. Shared Proponents receive separate
+host-authorized `agencies` entries instead of a singular Agency. The extension
+owns translation UI, its catalogs, terminology composition and asynchronous work.
