@@ -86,6 +86,7 @@ export type GcsExtensionHostComponentName =
   | 'CommonAssessmentSchemaAccordionSection'
   | 'CommonAssessmentSchemaPageSection'
   | 'CommonCompletionSection'
+  | 'CommonCompactTable'
   | 'CommonResourceLayoutCard'
   | 'CommonRouteTabs'
   | 'CommonSaveButton'
@@ -230,6 +231,7 @@ export interface GcsExtensionCompletionSectionProps {
   showDivider?: boolean
 }
 export const ExtensionCompletionSection = createExtensionHostComponent<GcsExtensionCompletionSectionProps>('CommonCompletionSection')
+export const ExtensionCompactTable = createExtensionHostComponent('CommonCompactTable')
 export const ExtensionResourceLayoutCard = createExtensionHostComponent('CommonResourceLayoutCard')
 export const ExtensionRouteTabs = createExtensionHostComponent('CommonRouteTabs')
 export const ExtensionSaveButton = createExtensionHostComponent('CommonSaveButton')

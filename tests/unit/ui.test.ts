@@ -11,6 +11,7 @@ import {
   createHostLifecycleApiClient,
   ExtensionAssessmentSchemaPageSection,
   ExtensionCompletionSection,
+  ExtensionCompactTable,
   ExtensionEntityHero,
   ExtensionStatusSelect,
   ExtensionWorkflowSection,
@@ -157,6 +158,8 @@ describe('extension SDK UI runtime adapters', () => {
 
     expect(ExtensionStatusSelect).toBeTruthy()
     expect(ExtensionCompletionSection).toBeTruthy()
+    expect(ExtensionCompactTable).toBeTruthy()
+    expect(runtime.components.CommonCompactTable).toBeTruthy()
     expect(ExtensionEntityHero).toBeTruthy()
     expect(ExtensionAssessmentSchemaPageSection).toBeTruthy()
     expect(ExtensionWorkflowSection).toBeTruthy()

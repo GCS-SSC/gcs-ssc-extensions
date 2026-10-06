@@ -137,6 +137,7 @@ const createExtensionTestComponent = (name: GcsExtensionHostComponentName): Comp
       setup(_, { attrs, emit, slots }) {
         return () => h('button', {
           type: 'button',
+          'aria-label': attrs['aria-label'],
           disabled: attrs.disabled === true || attrs.loading === true,
           onClick: () => emit('click')
         }, slots.default?.() ?? String(attrs.label ?? attrs.icon ?? ''))
@@ -173,6 +174,26 @@ const createExtensionTestComponent = (name: GcsExtensionHostComponentName): Comp
     })
   }
 
+  if (name === 'CommonCompactTable') {
+    return defineComponent({
+      name,
+      inheritAttrs: false,
+      setup(_, { attrs, slots }) {
+        return () => {
+          const columns = (Array.isArray(attrs.columns) ? attrs.columns : []) as Array<{ id?: string; accessorKey?: string; header?: string }>
+          const rows = (Array.isArray(attrs.data) ? attrs.data : []) as Array<Record<string, unknown>>
+          return h('table', [
+            h('thead', h('tr', columns.map(column => h('th', column.header)))),
+            h('tbody', rows.length ? rows.map((original, index) => h('tr', columns.map(column => {
+              const id = column.id ?? column.accessorKey ?? ''
+              return h('td', slots[`${id}-cell`]?.({ row: { original, index } }) ?? String(original[id] ?? ''))
+            }))) : h('tr', h('td', { colspan: columns.length }, slots.empty?.() ?? String(attrs.emptyText ?? ''))))
+          ])
+        }
+      }
+    })
+  }
+
   if (name === 'UTable') {
     return defineComponent({
       name,
@@ -202,6 +223,7 @@ const hostComponentNames: GcsExtensionHostComponentName[] = [
   'CommonAssessmentSchemaAccordionSection',
   'CommonAssessmentSchemaPageSection',
   'CommonCompletionSection',
+  'CommonCompactTable',
   'CommonResourceLayoutCard',
   'CommonRouteTabs',
   'CommonSaveButton',

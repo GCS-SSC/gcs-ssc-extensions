@@ -36,6 +36,21 @@ describe('extension SDK testing runtime', () => {
     expect(h(runtime.components.UTable)).toBeTruthy()
   })
 
+  it('renders compact table headers, data, named row slots and empty content', () => {
+    const runtime = createExtensionTestUiRuntime()
+    const actions = vi.fn(() => h('button', 'Edit'))
+    const columns = [{ accessorKey: 'name', header: 'Name' }, { id: 'actions', header: 'Actions' }]
+    const row = { name: 'Sample' }
+    const table = renderComponent(runtime.components.CommonCompactTable, { data: [row], columns }, { 'actions-cell': actions })
+    expect(table.vnode.type).toBe('table')
+    expect(actions).toHaveBeenCalledWith({ row: { original: row, index: 0 } })
+    expect(table.vnode.children[1].children[0].children[0].children).toBe('Sample')
+    const empty = renderComponent(runtime.components.CommonCompactTable, { data: [], columns, emptyText: 'No items' })
+    expect(empty.vnode.children[1].children[0].children[0].children).toBe('No items')
+    const slot = renderComponent(runtime.components.CommonCompactTable, {}, { empty: () => 'Custom empty' })
+    expect(slot.vnode.children[1].children[0].children[0].children).toBe('Custom empty')
+  })
+
   it('provides the standard extension route error response', () => {
     expect(createExtensionTestRouteResponse(409, 'CONFLICT', 'Try again')).toEqual({
       statusCode: 409,

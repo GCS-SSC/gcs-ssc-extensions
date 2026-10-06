@@ -1,6 +1,6 @@
 {
   "name": "@gcs-ssc/extensions",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "Public extension SDK contracts for GCS-SSC extensions.",
   "type": "module",
   "license": "UNLICENSED",

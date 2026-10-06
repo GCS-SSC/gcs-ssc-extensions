@@ -879,3 +879,15 @@ Configuration for this slot is `{ agency, stream? }`, each containing the owning
 extension’s enabled JSON configuration. Shared Proponents receive separate
 host-authorized `agencies` entries instead of a singular Agency. The extension
 owns translation UI, its catalogs, terminology composition and asynchronous work.
+
+### Local item tables
+
+SDK 0.3.9 exposes `ExtensionCompactTable` through `@gcs-ssc/extensions/ui`.
+It delegates to the host's standard compact table and preserves `data`,
+`columns`, `emptyText`, `ui`, and named cell slots such as `actions-cell`.
+For local collections, pair it with an Add action above the table and one
+`ExtensionModal` for create/edit drafts. Supply column headers, empty-state
+text and modal labels from the extension's catalog. Use
+`ExtensionFormField`/`ExtensionInput` for required controls and
+`ExtensionSaveButton` for the validated save action. Cancelling the draft
+must leave the collection unchanged.
