@@ -64,6 +64,7 @@ export interface GcsNitroApp {
 declare global {
   type EventHandler<T = unknown> = (event: GcsExtensionEvent) => T | Promise<T>
 
+  const CommonCurrencyInput: Component
   const CommonSaveButton: Component
   const CommonEntityEditorWorkspace: Component
   const CommonResourceLayoutCard: Component

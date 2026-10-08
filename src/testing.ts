@@ -93,15 +93,15 @@ const createExtensionTestComponent = (name: GcsExtensionHostComponentName): Comp
     })
   }
 
-  if (name === 'UInput' || name === 'UInputTags') {
+  if (name === 'UInput' || name === 'UInputTags' || name === 'CommonCurrencyInput') {
     return defineComponent({
       name,
       inheritAttrs: false,
       emits: ['update:modelValue'],
       setup(_, { attrs, emit }) {
-        const value = Array.isArray(attrs.modelValue) ? attrs.modelValue.join(',') : String(attrs.modelValue ?? '')
         return () => h('input', {
-          value,
+          ...(name === 'CommonCurrencyInput' ? { 'data-currency': attrs.currency, 'type': 'text', 'inputmode': 'decimal', 'disabled': attrs.disabled === true } : {}),
+          value: Array.isArray(attrs.modelValue) ? attrs.modelValue.join(',') : String(attrs.modelValue ?? ''),
           onInput: (event: Event) => {
             const nextValue = (event.target as HTMLInputElement).value
             emit('update:modelValue', name === 'UInputTags'
@@ -224,6 +224,7 @@ const hostComponentNames: GcsExtensionHostComponentName[] = [
   'CommonAssessmentSchemaPageSection',
   'CommonCompletionSection',
   'CommonCompactTable',
+  'CommonCurrencyInput',
   'CommonResourceLayoutCard',
   'CommonRouteTabs',
   'CommonSaveButton',

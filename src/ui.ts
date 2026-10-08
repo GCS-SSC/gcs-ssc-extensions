@@ -87,6 +87,7 @@ export type GcsExtensionHostComponentName =
   | 'CommonAssessmentSchemaPageSection'
   | 'CommonCompletionSection'
   | 'CommonCompactTable'
+  | 'CommonCurrencyInput'
   | 'CommonResourceLayoutCard'
   | 'CommonRouteTabs'
   | 'CommonSaveButton'
@@ -255,6 +256,12 @@ export const ExtensionCheckbox = createExtensionHostComponent('UCheckbox')
 export const ExtensionFormField = createExtensionHostComponent('UFormField')
 export const ExtensionIcon = createExtensionHostComponent('UIcon')
 export const ExtensionInput = createExtensionHostComponent('UInput')
+export interface GcsExtensionCurrencyInputProps {
+  modelValue?: string | null
+  currency: string | null | undefined
+  formatValue?: (value: string, locale: string, currency: string) => string | null
+}
+export const ExtensionCurrencyInput = createExtensionHostComponent<GcsExtensionCurrencyInputProps>('CommonCurrencyInput')
 export const ExtensionInputTags = createExtensionHostComponent('UInputTags')
 export const ExtensionModal = createExtensionHostComponent('UModal')
 export const ExtensionProgress = createExtensionHostComponent('UProgress')

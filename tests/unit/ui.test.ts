@@ -12,6 +12,7 @@ import {
   ExtensionAssessmentSchemaPageSection,
   ExtensionCompletionSection,
   ExtensionCompactTable,
+  ExtensionCurrencyInput,
   ExtensionEntityHero,
   ExtensionStatusSelect,
   ExtensionWorkflowSection,
@@ -159,6 +160,8 @@ describe('extension SDK UI runtime adapters', () => {
     expect(ExtensionStatusSelect).toBeTruthy()
     expect(ExtensionCompletionSection).toBeTruthy()
     expect(ExtensionCompactTable).toBeTruthy()
+    expect(ExtensionCurrencyInput).toBeTruthy()
+    expect(runtime.components.CommonCurrencyInput).toBeTruthy()
     expect(runtime.components.CommonCompactTable).toBeTruthy()
     expect(ExtensionEntityHero).toBeTruthy()
     expect(ExtensionAssessmentSchemaPageSection).toBeTruthy()
@@ -169,6 +172,21 @@ describe('extension SDK UI runtime adapters', () => {
     expect(runtime.components.CommonWorkflowSection).toBeTruthy()
     expect(runtime.components.CommonStatusSelect).toBeTruthy()
 
+    clearExtensionUiRuntime()
+  })
+
+  it('forwards exact currency input values and native denomination through the host wrapper', () => {
+    const runtime = createExtensionTestUiRuntime()
+    setExtensionUiRuntime(runtime)
+    const update = vi.fn()
+    const attrs = { modelValue: '99999999999999999.99', currency: 'usd', required: true, 'onUpdate:modelValue': update }
+    const render = (ExtensionCurrencyInput as { setup: Function }).setup({}, { attrs, slots: {} }) as () => { type: unknown, props: Record<string, unknown> }
+    const vnode = render()
+    expect(vnode.type).toBe(runtime.components.CommonCurrencyInput)
+    expect(vnode.props).toMatchObject(attrs)
+    ;(vnode.props['onUpdate:modelValue'] as (value: string) => void)('0.01')
+    expect(update).toHaveBeenCalledWith('0.01')
+    expect(runtime.composables.useI18n()).not.toHaveProperty('t')
     clearExtensionUiRuntime()
   })
 

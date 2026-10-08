@@ -28,6 +28,7 @@ describe('extension SDK testing runtime', () => {
     const runtime = createExtensionTestUiRuntime()
 
     expect(runtime.components.UInput).toBeTruthy()
+    expect(runtime.components.CommonCurrencyInput).toBeTruthy()
     expect(runtime.components.UInputTags).toBeTruthy()
     expect(runtime.components.CommonSaveButton).toBeTruthy()
     expect(runtime.components.CommonAssessmentSchemaAccordionSection).toBeTruthy()
@@ -76,6 +77,13 @@ describe('extension SDK testing runtime', () => {
     const input = renderComponent(runtime.components.UInput, { modelValue: null })
     input.vnode.props.onInput({ target: { value: 'next' } })
     expect(input.emit).toHaveBeenCalledWith('update:modelValue', 'next')
+
+    const currency = renderComponent(runtime.components.CommonCurrencyInput, { modelValue: '99999999999999999.99', currency: 'usd', disabled: true })
+    expect(currency.vnode.props.value).toBe('99999999999999999.99')
+    expect(currency.vnode.props['data-currency']).toBe('usd')
+    expect(currency.vnode.props.disabled).toBe(true)
+    currency.vnode.props.onInput({ target: { value: '' } })
+    expect(currency.emit).toHaveBeenCalledWith('update:modelValue', '')
 
     const tags = renderComponent(runtime.components.UInputTags, { modelValue: ['one'] })
     tags.vnode.props.onInput({ target: { value: 'two, ,three' } })
