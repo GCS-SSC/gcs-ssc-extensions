@@ -4,6 +4,12 @@ Public SDK contracts for GCS-SSC extensions.
 
 Extensions should import host-facing types and helpers from this package instead of importing from `~~/shared`, `~~/server`, or other host-internal paths.
 
+The public `GCS_EXTENSION_ENTITIES` catalog includes `commondatacollection` with bilingual
+Data Collections / Collectes de données labels. This is an independently assigned,
+workflow-created questionnaire entry with no decision fields. Catalog identity does not
+grant lifecycle capabilities or access to its source owner; host authorization remains
+authoritative. Extensions own any corresponding interface labels in their local catalogs.
+
 ## Money write inputs
 
 Extension-to-host money writes use `GcsExtensionMoneyInput` from `@gcs-ssc/extensions/server`. Send canonical plain decimal text with at most two fractional digits. Text is authoritative and supports the host's full persisted money range; for example, use `'1234.56'` rather than `1234.56`.
@@ -108,6 +114,13 @@ The host installs the concrete UI runtime with `setExtensionUiRuntime`. Extensio
 Use `useExtensionApi(extensionKey)` for extension-owned routes and `useHostApi()` for stable host API routes. Extensions that call `useHostApi()` must declare `host-api-client` in `requiredHostCapabilities`. Do not call `fetch` or build `/api/...` URLs directly in extension components.
 
 Lifecycle entity UI may use `ExtensionCompletionSection` and `ExtensionWorkflowSection` for the standard host presentation. Extensions that need a custom presentation use `useHostLifecycleApi()`, whose typed methods cover Completion state and execution, eligible standard Workflow discovery, and explicit Workflow start. The host still resolves scope, assignment, status eligibility, publication state, and concurrency; the extension supplies only the exact qualified target and, for an explicit start, the selected `workflowSetupId`.
+
+`ExtensionSupplementaryInformationSection` accepts the exact `entityType` and `entityId`
+and displays read-only Data Collection responses from each workflow's latest successful
+run, across all purposes. Labels come from the pinned publication versions. The host
+enforces the source owner's read authority and extension enablement; collection or
+approval assignment does not grant access to this entity view. The host component
+owns its built-in translations; extension navigation labels stay in the package catalog.
 
 ```ts
 import { useHostApi } from '@gcs-ssc/extensions/ui'

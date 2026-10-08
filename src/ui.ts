@@ -95,6 +95,7 @@ export type GcsExtensionHostComponentName =
   | 'CommonStatusBadge'
   | 'CommonStatusSelect'
   | 'CommonWorkflowSection'
+  | 'CommonWorkflowSupplementaryInformation'
   | 'UAccordion'
   | 'UAlert'
   | 'UBadge'
@@ -246,6 +247,11 @@ export interface GcsExtensionWorkflowSectionProps {
   refreshKey?: number
 }
 export const ExtensionWorkflowSection = createExtensionHostComponent<GcsExtensionWorkflowSectionProps>('CommonWorkflowSection')
+export interface GcsExtensionSupplementaryInformationSectionProps {
+  entityType: string
+  entityId: string
+}
+export const ExtensionSupplementaryInformationSection = createExtensionHostComponent<GcsExtensionSupplementaryInformationSectionProps>('CommonWorkflowSupplementaryInformation')
 export const ExtensionTextarea = createExtensionHostComponent('UTextarea')
 
 export const ExtensionAccordion = createExtensionHostComponent('UAccordion')

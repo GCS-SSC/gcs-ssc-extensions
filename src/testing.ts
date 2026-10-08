@@ -232,6 +232,7 @@ const hostComponentNames: GcsExtensionHostComponentName[] = [
   'CommonStatusBadge',
   'CommonStatusSelect',
   'CommonWorkflowSection',
+  'CommonWorkflowSupplementaryInformation',
   'UAccordion',
   'UAlert',
   'UBadge',

@@ -16,6 +16,7 @@ import {
   ExtensionEntityHero,
   ExtensionStatusSelect,
   ExtensionWorkflowSection,
+  ExtensionSupplementaryInformationSection,
   setExtensionUiRuntime,
   useExtensionApi,
   useExtensionConfirmDialog,
@@ -166,12 +167,26 @@ describe('extension SDK UI runtime adapters', () => {
     expect(ExtensionEntityHero).toBeTruthy()
     expect(ExtensionAssessmentSchemaPageSection).toBeTruthy()
     expect(ExtensionWorkflowSection).toBeTruthy()
+    expect(ExtensionSupplementaryInformationSection).toBeTruthy()
     expect(runtime.components.CommonCompletionSection).toBeTruthy()
     expect(runtime.components.CommonEntityHero).toBeTruthy()
     expect(runtime.components.CommonAssessmentSchemaPageSection).toBeTruthy()
     expect(runtime.components.CommonWorkflowSection).toBeTruthy()
+    expect(runtime.components.CommonWorkflowSupplementaryInformation).toBeTruthy()
     expect(runtime.components.CommonStatusSelect).toBeTruthy()
 
+    clearExtensionUiRuntime()
+  })
+
+  it('forwards the exact supplementary entity target without exposing translation lookup', () => {
+    const runtime = createExtensionTestUiRuntime()
+    setExtensionUiRuntime(runtime)
+    const attrs = { entityType: 'sample:case', entityId: '9007199254740993' }
+    const render = (ExtensionSupplementaryInformationSection as { setup: Function }).setup({}, { attrs, slots: {} }) as () => { type: unknown, props: Record<string, unknown> }
+    const vnode = render()
+    expect(vnode.type).toBe(runtime.components.CommonWorkflowSupplementaryInformation)
+    expect(vnode.props).toMatchObject(attrs)
+    expect(runtime.composables.useI18n()).not.toHaveProperty('t')
     clearExtensionUiRuntime()
   })
 

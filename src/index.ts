@@ -156,6 +156,7 @@ export type GcsExtensionEntityType =
   | 'applicantrecipient'
   | 'commonreview'
   | 'commonrecommendation'
+  | 'commondatacollection'
   | 'fundingcaseamendment'
   | 'fundingcasecommitment'
   | 'fundingcasemonitor'
@@ -327,6 +328,7 @@ export const GCS_EXTENSION_ENTITIES: GcsExtensionEntityDefinition[] = [
   { type: 'applicantrecipient', label: { en: 'Proponents', fr: 'Promoteurs' } },
   { type: 'commonreview', label: { en: 'Reviews', fr: 'Examens' } },
   { type: 'commonrecommendation', label: { en: 'Recommendations', fr: 'Recommandations' } },
+  { type: 'commondatacollection', label: { en: 'Data Collections', fr: 'Collectes de données' } },
   { type: 'fundingcaseamendment', label: { en: 'Amendments', fr: 'Modifications' } },
   { type: 'fundingcasecommitment', label: { en: 'Commitments', fr: 'Engagements' } },
   { type: 'fundingcasemonitor', label: { en: 'Monitors', fr: 'Surveillances' } },

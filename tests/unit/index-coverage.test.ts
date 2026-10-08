@@ -2,12 +2,17 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   defineGcsExtension,
+  GCS_EXTENSION_ENTITIES,
   FetchResponseError,
   getClientRequestUrl,
   throwFetchResponseError
 } from '../../src'
 
 describe('extension SDK fetch errors and manifest identity', () => {
+  it('exposes the independently assigned Data Collection as a bilingual core entity', () => {
+    expect(GCS_EXTENSION_ENTITIES.find(entity => entity.type === 'commondatacollection'))
+      .toEqual({ type: 'commondatacollection', label: { en: 'Data Collections', fr: 'Collectes de données' } })
+  })
   afterEach(() => {
     delete (globalThis as { window?: unknown }).window
   })
