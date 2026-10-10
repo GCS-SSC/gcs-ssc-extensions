@@ -38,6 +38,8 @@ export interface GcsFileStorageObjectReference {
 }
 
 export interface GcsFileStorageOperationContext extends GcsFileStorageObjectReference {
+  /** Host cancellation/deadline for external provider calls. */
+  signal?: AbortSignal
   agencyId: string
   purpose: GcsFileStoragePurpose
   target?: GcsFileStorageTarget
@@ -868,11 +870,40 @@ export interface GcsExtensionWriteAuthorization {
   ) => Promise<GcsExtensionAgreementForecastCreateResult>
 }
 
-/** Host services offered to an enabled extension during the minute task. */
-export interface GcsExtensionScheduledMinutePayload {
+/** Host services offered to bounded, enabled L1 handlers. */
+export interface GcsL1QueueContext {
   db: unknown
   createWriteAuthorization: (extensionKey: string, agencyId: string) => GcsExtensionWriteAuthorization
   runForAgency: <T>(agencyId: string, operation: () => Promise<T>) => Promise<T>
+}
+
+export interface GcsL1QueueHandler {
+  /** Stable handler identity; extensions use a package-local ID. */
+  id: string
+  /** Delay after completion; missed recurring runs never accumulate. */
+  intervalMs: number
+  extensionKey?: string
+  run: (context: GcsL1QueueContext) => Promise<void>
+}
+
+export interface GcsL1QueueRegistration {
+  register: (handler: GcsL1QueueHandler) => void
+}
+
+/** Registers bounded recurring work with the host's durable L1 queue from an enabled plugin. */
+export const registerGcsExtensionL1QueueHandler = (
+  handler: GcsL1QueueHandler & { extensionKey: string },
+  nitroApp: NitroHookRegistrar
+): void => {
+  if (!/^[a-z][a-z0-9-]*$/.test(handler.extensionKey) || !/^[a-z][a-z0-9-]*$/.test(handler.id)) {
+    throw new Error('L1 queue extension and handler identities must be lowercase kebab-case.')
+  }
+  if (!Number.isSafeInteger(handler.intervalMs) || handler.intervalMs < 1000 || handler.intervalMs > 2_147_483_647) {
+    throw new Error('L1 queue intervals must be whole milliseconds of at least 1000.')
+  }
+  nitroApp.hooks.hook('gcs-extension:l1-queue-register', (registration: GcsL1QueueRegistration) => {
+    registration.register({ ...handler, id: `${handler.extensionKey}:${handler.id}` })
+  })
 }
 
 export interface GcsExtensionAgreementOption {
@@ -2151,7 +2182,8 @@ export type GcsAgreementNumberProvider = (context: GcsAgreementNumberProviderCon
 /** Financial output type; commitment types are user-defined stream catalog identities. */
 export type GcsCodingAllocationOutput =
   | { kind: 'commitment'; commitmentTypeId: string }
-  | { kind: 'payment' | 'receivable' | 'credit-memo' }
+  | { kind: 'payment'; commitmentId: string; commitmentTypeId: string; fiscalYearId: string }
+  | { kind: 'receivable' | 'credit-memo' }
 
 export interface GcsCodingAllocationCatalogLine {
   /** Stream-selected catalog identity; this is the identity returned in allocations. */
@@ -2164,6 +2196,8 @@ export interface GcsCodingAllocationCatalogLine {
 }
 
 export interface GcsCodingAllocatorContext {
+  /** Active host transaction, for reading extension-owned storage only; never query or mutate host tables. */
+  db: Transaction<unknown>
   agreementId: string
   agencyId: string
   streamId: string
@@ -2176,10 +2210,12 @@ export interface GcsCodingAllocatorContext {
   existingLines: Array<{ id: string; codingLineId: string; amount: string; paidAmount: string }>
   /** Aggregate minimum by coding key, including successful incoming shared adjustments. */
   codingPaidFloors: Array<{ codingLineId: string; paidAmount: string }>
+  /** Payment capacity per coding key, counted once across duplicate rows; empty for other outputs. */
+  codingAvailableAmounts: Array<{ codingLineId: string; amount: string }>
   config: GcsExtensionJsonConfig
   agencyConfig: GcsExtensionJsonConfig
 }
 
-/** Allocators return exact decimal money; the host owns totals, catalog validity and paid floors. */
+/** Allocators return exact decimal money, or null for manual coding; the host owns validation and persistence. */
 export type GcsCodingAllocator = (context: GcsCodingAllocatorContext) =>
-  Promise<Array<{ codingLineId: string; amount: string }>> | Array<{ codingLineId: string; amount: string }>
+  Promise<Array<{ codingLineId: string; amount: string }> | null> | Array<{ codingLineId: string; amount: string }> | null

@@ -25,7 +25,12 @@ Financial coding allocators declare `requiredHostCapabilities: ['coding-allocato
 `GcsCodingAllocator` from `@gcs-ssc/extensions/server`. Its context supplies the exact total,
 Agreement/Agency/Stream and currency, the output kind (with the user-defined Commitment
 type when applicable), the valid stream-selected output catalog, the Commitment catalog,
-and existing Commitment rows with host-calculated paid floors. Return only canonical
+and existing Commitment rows with host-calculated paid floors. Payment outputs also identify
+the selected Commitment, Commitment type and stable Agreement budget fiscal year, and
+`codingAvailableAmounts` supplies remaining capacity once per coding key across duplicate rows.
+The active `db` transaction permits reads of extension-owned storage only; do not query or
+mutate host tables. Return `null` to leave an unsupported output or Commitment type manual,
+or return only canonical
 `{ codingLineId, amount }` entries. The host requires a unique valid subset whose exact sum
 matches the requested total and preserves already-paid Commitment amounts. It owns
 authorization and persistence. Without an enabled allocator, host drafts retain manual
@@ -923,3 +928,42 @@ text and modal labels from the extension's catalog. Use
 `ExtensionFormField`/`ExtensionInput` for required controls and
 `ExtensionSaveButton` for the validated save action. Cancelling the draft
 must leave the collection unchanged.
+
+### L1 durable scheduling
+
+Declare `l1-queue` and register bounded recurring handlers from the extension's
+Nitro plugin with `registerGcsExtensionL1QueueHandler` from
+`@gcs-ssc/extensions/server`:
+
+```ts
+registerGcsExtensionL1QueueHandler({
+  extensionKey: 'example',
+  id: 'external-delivery',
+  intervalMs: 5000,
+  run: async ({ db, runForAgency, createWriteAuthorization }) => {
+    // Drain a bounded batch from the extension's transactional operation queue.
+  }
+}, nitroApp)
+```
+
+The host persists one schedule per namespaced handler, claims it with a renewable
+lease, and checks due work every five seconds after migrations and audit startup.
+Intervals are whole milliseconds from 1000 through 2147483647. The next recurring
+run is scheduled after completion; missed runs do not accumulate or overlap.
+Independent handlers continue while another is active. Unexpected failures retry
+indefinitely with exponential delay capped at thirty minutes (or the handler's
+longer interval). Domain handlers retain permanent-failure policy and their own
+operation retry state.
+
+L1 centralizes execution scheduling. Existing domain queues retain payloads,
+transactional enqueueing, ordering and business evidence. Registering a handler
+neither grants authorization nor replaces fresh Agency enablement checks. Use the
+provided `runForAgency` for actorless Agency audit attribution and
+`createWriteAuthorization` for supported host writes. Resolve current credentials
+when executing; never persist them in scheduler state. Delivery is at least once:
+external operations must be idempotent or supply a stable idempotency key.
+
+Handlers activate only after an extension has an enabled Agency and its migrations
+succeed. The host skips disabled extensions, while each handler rechecks the owning
+Agency before operating. Shutdown stops new dispatch and waits for active handlers
+before releasing the database lease. All external calls must have bounded timeouts.

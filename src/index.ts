@@ -634,6 +634,7 @@ export type GcsExtensionHostCapability =
   | 'configuration-access'
   | 'scheduled-agreement-import'
   | 'scheduled-intake-import'
+  | 'l1-queue'
   | 'agency-only-configuration'
   | 'audit-ownership'
 
