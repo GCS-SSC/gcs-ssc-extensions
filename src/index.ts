@@ -5,7 +5,7 @@ export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './mess
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.3.9'
+export const GCS_EXTENSION_SDK_VERSION = '0.3.10'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -146,7 +146,7 @@ export interface GcsExtensionRbacRequirement {
   action: GcsExtensionRbacAction
 }
 
-export type GcsExtensionEntityTabTarget = 'agreement' | 'proponent' | 'claim' | 'monitor' | 'opportunity'
+export type GcsExtensionEntityTabTarget = 'agreement' | 'proponent' | 'claim' | 'monitor' | 'opportunity' | 'payment'
 
 export type GcsExtensionEntityType =
   | 'fundingopportunity'
@@ -630,6 +630,7 @@ export type GcsExtensionHostCapability =
   | 'lifecycle-entities'
   | 'file-storage-provider'
   | 'agreement-number-provider'
+  | 'coding-allocator'
   | 'configuration-access'
   | 'scheduled-agreement-import'
   | 'scheduled-intake-import'
@@ -684,6 +685,8 @@ export interface GcsExtensionDefinition {
   runtime?: GcsExtensionRuntimeResolverDefinition
   nitroPlugin?: string
   agreementNumberProvider?: { path: string }
+  /** Server allocator for host-created financial coding; the host validates and persists its result. */
+  codingAllocator?: { path: string }
   fileStorageProvider?: GcsFileStorageProviderDefinition
 }
 
@@ -819,6 +822,7 @@ export type ExtensionEntityOwnerType =
   | 'applicantrecipient'
   | 'fundingcaseagreementclaim'
   | 'fundingcaseagreementmonitor'
+  | 'fundingcasepayment'
 
 export interface GcsProponentContributionAgency {
   agencyId: string
@@ -838,6 +842,7 @@ export type ExtensionEntityTabContext = {
   streamId?: never
   agreementId?: never
   claimId?: never
+  paymentId?: never
   monitorId?: never
   opportunityId?: never
   scope?: never
@@ -848,6 +853,7 @@ export type ExtensionEntityTabContext = {
   agreementId?: string
   applicantRecipientId?: string
   claimId?: string
+  paymentId?: string
   monitorId?: string
   opportunityId?: string
   ownerType: ExtensionEntityOwnerType

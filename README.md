@@ -2,6 +2,10 @@
 
 Public SDK contracts for GCS-SSC extensions.
 
+Entity tabs use the shared host detail workspace's full available width.
+Extension tab bodies should use SDK sections for distinct nested headings and leave
+outer widths to the host workspace.
+
 Extensions should import host-facing types and helpers from this package instead of importing from `~~/shared`, `~~/server`, or other host-internal paths.
 
 The public `GCS_EXTENSION_ENTITIES` catalog includes `commondatacollection` with bilingual
@@ -16,9 +20,20 @@ Extension-to-host money writes use `GcsExtensionMoneyInput` from `@gcs-ssc/exten
 
 Payment amount calculators emit `GcsPaymentAmountCalculatorResult` from `@gcs-ssc/extensions/ui`. Its monetary result and detail fields use canonical two-decimal strings; calculators must not emit JavaScript numbers for money.
 
+Financial coding allocators declare `requiredHostCapabilities: ['coding-allocator']` and
+`codingAllocator: { path: './server/allocator.ts' }`. The server module exports a default
+`GcsCodingAllocator` from `@gcs-ssc/extensions/server`. Its context supplies the exact total,
+Agreement/Agency/Stream and currency, the output kind (with the user-defined Commitment
+type when applicable), the valid stream-selected output catalog, the Commitment catalog,
+and existing Commitment rows with host-calculated paid floors. Return only canonical
+`{ codingLineId, amount }` entries. The host requires a unique valid subset whose exact sum
+matches the requested total and preserves already-paid Commitment amounts. It owns
+authorization and persistence. Without an enabled allocator, host drafts retain manual
+coding. Journal Vouchers and Corrections do not use the allocator.
+
 Finite JavaScript numbers remain accepted only for backwards compatibility. The host accepts them only when they round-trip to exact cents within the safe integer range. New extensions must not use numbers for money, and must not round, truncate, or convert money through `Number` before calling a host write contract.
 
-## Agreement financial projections (SDK 0.3.7)
+## Agreement financial projections (SDK 0.3.10)
 
 Declare `agreement-payment-capacity` in `requiredHostCapabilities`. Authorized Agreement routes and host create-operation/payment-mutation hooks receive `agreementFinancials`. Require it with `requireGcsExtensionAgreementFinancials(context)` from the server entry point; call `getCommitmentPaymentCapacity({ fiscalYearId, commitmentTypeId, excludePaymentId? })`.
 
@@ -28,9 +43,13 @@ The host binds this read to the canonical Agreement and its active database or w
 
 The host owns active commitment selection, exact Payment coverage, successful JV/reversal effects, posted Correction effects, Agency chart matching, and duplicate coding pools. Route reads refresh Agreement Viewer authority and extension enablement. This projection grants no source API access and performs no write or posting. Protected writes continue to use the normal locked host transaction. Do not fall back to a local accounting calculation when the capability is absent.
 
+`getPaymentCalculation({ fiscalYearId, commitmentTypeId, paymentType, periodEnd, currency?, releaseHoldback?, holdbackReleaseAmount?, excludePaymentId? })` returns the eight host-owned amounts: `baseAmount`, `commitmentRemaining`, `availableBeforeHoldback`, `holdbackReleaseAmount`, `totalClaimsToLastClaimMonth`, `totalForecastToLastClaimMonth`, `totalForecastToPeriodEnd`, and `totalPaymentsToDate`. The response also supplies `agreementId`, `currency`, `holdbackAmount`, `ceilingAmount`, and `suggestedAmount`. All monetary values are exact decimal strings. The host selects successful Claim reconciliations, applied Claim reductions, current budgets, the latest active Forecast version, net recorded paid, shared coding capacity, and Agreement holdback rules. `availableBeforeHoldback` retains the existing calculator label for ordinary available money after reserving holdback. Extensions using this method require SDK `^0.3.10`; retain its response as versioned extension-owned evidence when later viewing must show the calculation used at creation.
+
+Approved Credit Memo coding reduces recorded paid and Commitment usage only when it has a captured link to Commitment coding. Receivable principal alone has no paid effect. Claim reduction plans contribute only after full receivable clearance; original Claim and reconciliation evidence remain unchanged.
+
 `getRecordedPaidToDate({ fiscalYearId, periodEnd, currency?, excludePaymentId? })` supplies cumulative `cashPaidAmount`, `jvEffectAmount`, `correctionAmount`, and `recordedPaidAmount`, plus `currency`. Select a supported lowercase currency code to filter cash Payments, successful JVs, and posted Corrections before sums; an empty selected-currency result returns zero amounts with that currency. Currency must match the owning Agreement’s immutable denomination. Omitting currency derives that denomination, including when no accounting entries exist. `periodEnd` is the fiscal month index, April = 0 through March = 11. Earlier fiscal years contribute to cumulative totals. All amounts are exact decimal strings; protective per-line capacity floors never enter paid-to-date totals. Excluding a recalculated Payment removes its cash and JV effects while independent posted Corrections remain effective.
 
-`getPaidAccountingProjection({ excludePaymentId?, paymentMode? })` returns retained accounting entries identified as `cash_payment`, `journal_voucher`, or `correction`, with currency, stable Agreement fiscal year, Agency fiscal year, period and exact amount. `paymentMode: 'finalized'` excludes denied and unresolved outcomes while retaining supported historical terminal Payments without Completion evidence. The default preserves active Payment reservations for payment calculations. Only successfully posted Corrections contribute in either mode; fiscal closing switches do not govern Corrections. The host selects the owning Agreement’s denomination before extracting entries; invalid imported rows in another currency do not enter its totals.
+`getPaidAccountingProjection({ excludePaymentId?, paymentMode? })` returns retained accounting entries identified as `cash_payment`, `journal_voucher`, `correction`, or `account_receivable_recovery`, with currency, stable Agreement fiscal year, Agency fiscal year, period and exact amount. `account_receivable_recovery` identifies approved linked Credit Memo effects. `paymentMode: 'finalized'` excludes denied and unresolved outcomes while retaining supported historical terminal Payments without Completion evidence. The default preserves active Payment reservations for payment calculations. Only successfully posted Corrections contribute in either mode; fiscal closing switches do not govern Corrections. The host selects the owning Agreement’s denomination before extracting entries; invalid imported rows in another currency do not enter its totals.
 
 SDK 0.3.7 adds optional `currency` to `getCommitmentPaymentCapacity`, `getCommitmentLinePaymentCoverage`, and `validatePaymentAllocations`. Selected currency must match the owning Agreement. Omitted currency derives its immutable denomination; capacity uses only Commitments and accounting entries in that native currency. Exact-line coverage and batch validation require selected currency to match each owning Commitment and its Agency Chart denomination. A single batch cannot mix currencies. Currency-aware extensions require SDK `^0.3.7` and the existing `agreement-payment-capacity` capability so an older host cannot silently ignore their selection. Automated Payments uses cumulative corrected recorded paid and native shared capacity; allocation extensions keep immutable weights and validate generated line batches through the host.
 
