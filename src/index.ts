@@ -323,7 +323,7 @@ export const GCS_TEXTAREA_TARGETS: GcsTextareaTargetDefinition[] = [
 export const GCS_EXTENSION_ENTITIES: GcsExtensionEntityDefinition[] = [
   { type: 'fundingopportunity', label: { en: 'Funding Opportunities', fr: 'Possibilités de financement' } },
   { type: 'transferpaymentstream', label: { en: 'Streams', fr: 'Volets' } },
-  { type: 'fundingcaseintake', label: { en: 'Intakes', fr: 'Admissions' } },
+  { type: 'fundingcaseintake', label: { en: 'Intakes', fr: 'Dossiers de demande' } },
   { type: 'fundingcaseagreement', label: { en: 'Agreements', fr: 'Ententes' } },
   { type: 'applicantrecipient', label: { en: 'Proponents', fr: 'Promoteurs' } },
   { type: 'commonreview', label: { en: 'Reviews', fr: 'Examens' } },
@@ -332,7 +332,7 @@ export const GCS_EXTENSION_ENTITIES: GcsExtensionEntityDefinition[] = [
   { type: 'fundingcaseamendment', label: { en: 'Amendments', fr: 'Modifications' } },
   { type: 'fundingcasecommitment', label: { en: 'Commitments', fr: 'Engagements' } },
   { type: 'fundingcasemonitor', label: { en: 'Monitors', fr: 'Surveillances' } },
-  { type: 'fundingclaimreconcile', label: { en: 'Claims', fr: 'Réclamations' } },
+  { type: 'fundingclaimreconcile', label: { en: 'Claims', fr: 'Demandes de remboursement' } },
   { type: 'fundingcaseforecast', label: { en: 'Forecasts', fr: 'Prévisions' } },
   { type: 'fundingcasecorrection', label: { en: 'Corrections', fr: 'Corrections' } },
   { type: 'fundingcasejournalvoucher', label: { en: 'Journal Vouchers', fr: 'Pièces de journal' } },
@@ -358,14 +358,14 @@ export const GCS_EXTENSION_CLAIM_FIELDS: GcsExtensionEntityFieldDefinition[] = [
   {
     entityType: 'fundingclaimreconcile',
     key: 'egcs_fc_periodstart',
-    label: { en: 'Claim period start month', fr: 'Mois de début de la période de réclamation' },
+    label: { en: 'Claim period start month', fr: 'Mois de début de la période de demande de remboursement' },
     required: true,
     valueType: 'number'
   },
   {
     entityType: 'fundingclaimreconcile',
     key: 'egcs_fc_periodend',
-    label: { en: 'Claim period end month', fr: 'Mois de fin de la période de réclamation' },
+    label: { en: 'Claim period end month', fr: 'Mois de fin de la période de demande de remboursement' },
     required: true,
     valueType: 'number'
   },
