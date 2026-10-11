@@ -111,10 +111,10 @@ describe('extension SDK server branch contracts', () => {
     const captured = captureHook()
     const implementation = vi.fn()
     registerGcsExtensionAgreementPaymentMutationGuard('sample', implementation, captured.registrar as never)
-    const payload = { event: {}, db: {}, agreementId: '1', agencyId: '2', streamId: '3' }
-    await captured.read().handler!(payload)
+    const payload = { event: {}, db: {}, agreementId: '1', paymentId: '2', operation: 'payment.update' }
+    await captured.read().handler!({ ...payload, agencyConfigurations: {} })
     expect(captured.read().name).toBe(GCS_EXTENSION_AGREEMENT_PAYMENT_MUTATION_GUARD_HOOK)
-    expect(implementation).toHaveBeenCalledWith({ ...payload, extensionKey: 'sample' })
+    expect(implementation).toHaveBeenCalledWith({ ...payload, extensionKey: 'sample', agencyEnabled: false, agencyConfig: {} })
   })
 
   it('fails every lifecycle registration outside a Nitro plugin', () => {
@@ -131,7 +131,7 @@ describe('extension SDK server branch contracts', () => {
 
   it('wraps route handlers with the host-created extension context', async () => {
     const handler = vi.fn(async context => ({ db: context.db, config: context.config }))
-    const event = { context: { $db: 'database', gcsExtension: { config: { enabled: true } } } }
+    const event = { context: { $db: 'database', gcsExtension: { config: { enabled: true }, agencyConfig: {} } } }
     await expect(defineGcsExtensionRouteHandler(handler)(event as never)).resolves.toEqual({
       db: 'database', config: { enabled: true }
     })

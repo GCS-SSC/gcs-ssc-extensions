@@ -510,6 +510,8 @@ export type GcsExtensionAgreementPaymentMutation =
 
 export interface GcsExtensionAgreementPaymentMutationGuardContext {
   extensionKey: string
+  agencyEnabled: boolean
+  agencyConfig: GcsExtensionJsonConfig
   operation: GcsExtensionAgreementPaymentMutation
   event: unknown
   db: Transaction<unknown>
@@ -528,8 +530,8 @@ export type GcsExtensionAgreementPaymentMutationGuardHandler = (
 
 export type GcsExtensionAgreementPaymentMutationGuardHookPayload = Omit<
   GcsExtensionAgreementPaymentMutationGuardContext,
-  'extensionKey'
->
+  'extensionKey' | 'agencyEnabled' | 'agencyConfig'
+> & { agencyConfigurations: Record<string, { enabled: boolean; config: GcsExtensionJsonConfig }> }
 
 export interface GcsExtensionAgreementDeleteGuardContext {
   extensionKey: string
@@ -606,6 +608,7 @@ export interface GcsExtensionCreateOperationContext {
   streamId: string
   scope: ExtensionScope
   config: GcsExtensionJsonConfig
+  agencyConfig: GcsExtensionJsonConfig
   validatedBody: Record<string, unknown>
   createdRecord?: Record<string, unknown>
   agreementFinancials?: GcsExtensionAgreementFinancials
@@ -697,6 +700,7 @@ export interface GcsExtensionRouteEvent {
     gcsExtension?: {
       extensionKey?: string
       config: GcsExtensionJsonConfig | unknown
+      agencyConfig: GcsExtensionJsonConfig | unknown
       writeAuthorization?: GcsExtensionWriteAuthorization
       agreementFinancials?: GcsExtensionAgreementFinancials
       agreementAccess?: GcsExtensionAgreementAccess
@@ -715,6 +719,7 @@ export interface GcsExtensionRouteContext {
   auth?: GcsExtensionAuthContext
   extensionKey?: string
   config: GcsExtensionJsonConfig | unknown
+  agencyConfig: GcsExtensionJsonConfig | unknown
   entity?: Record<string, unknown>
   stream?: Record<string, unknown>
   agency?: Record<string, unknown>
@@ -926,36 +931,42 @@ export interface GcsExtensionPaymentCalculationInput {
   commitmentTypeId: string
   currency?: string
   paymentType: 'reimbursement' | 'advance'
+  periodStart: number
   periodEnd: number
   releaseHoldback?: boolean
   holdbackReleaseAmount?: string
   excludePaymentId?: string
 }
 
+/** Exact host financial inputs; consuming extensions calculate entitlement, holdback and ceilings. */
 export interface GcsExtensionPaymentCalculationResult {
   agreementId: string
   currency: string
-  baseAmount: string
   commitmentRemaining: string
-  availableBeforeHoldback: string
-  holdbackReleaseAmount: string
   totalClaimsToLastClaimMonth: string
   totalForecastToLastClaimMonth: string
   totalForecastToPeriodEnd: string
+  /** Cash plus signed JV/Correction effects through the selected period, excluding Credit Memos. */
   totalPaymentsToDate: string
-  ceilingAmount: string
-  suggestedAmount: string
-  holdbackAmount: string
+  /** Positive posted linked Credit Memo recovery through the selected fiscal year, regardless of collection month. */
+  totalCreditMemos: string
+  /** Posted linked credits attributable to finally reconciled source periods through the selected end. */
+  totalCreditMemosForReconciledPeriods: string
+  agreementTotal: string
+  finalFiscalYearTotal: string
+  availableForDisbursementBeforeHoldback: string
+  holdbackPercent: string
+  holdbackBasis: 'fullagreement' | 'finalfiscal'
 }
 
 export interface GcsExtensionAgreementFinancials {
-  /** Host-owned exact calculation inputs and results, bound to this authorized Agreement. */
+  /** Host-owned exact financial inputs, bound to this authorized Agreement. */
   getPaymentCalculation: (input: GcsExtensionPaymentCalculationInput) => Promise<GcsExtensionPaymentCalculationResult>
-  /** Actual cumulative accounting through a stable fiscal year/period; optional currency must match the owning Agreement; omission derives its denomination. */
+  /** Actual period accounting and positive posted creditMemoAmount through the fiscal year, regardless of receipt month; denomination follows the Agreement. */
   getRecordedPaidToDate: (input: {
     fiscalYearId: string; periodEnd: number; excludePaymentId?: string; currency?: string
   }) => Promise<{ agreementId: string; cashPaidAmount: string; jvEffectAmount: string;
-    correctionAmount: string; accountReceivableRecoveryAmount: string; recordedPaidAmount: string; currency: string | null }>
+    correctionAmount: string; accountReceivableRecoveryAmount: string; creditMemoAmount: string; recordedPaidAmount: string; currency: string | null }>
   /** Signed successful Credit Memo effects on approved Claim consumption in its original fiscal period. */
   getClaimRecoveryProjection: () => Promise<{ agreementId: string; entries: Array<{
     claimLineId: string | null; fiscalYearOrder: string; month: number; currency: string; amount: string
@@ -1005,6 +1016,7 @@ export const createGcsExtensionRouteContext = (event: GcsExtensionRouteEvent): G
     db: event.context.$db,
     params: event.context.params ?? {},
     config: event.context.gcsExtension?.config ?? {},
+    agencyConfig: event.context.gcsExtension?.agencyConfig ?? {},
     readBody: async <T = unknown>() => await readGcsExtensionRequestBody<T>(event),
     getHeader: (name: string) => getGcsExtensionRequestHeader(event, name)
   }
@@ -1355,9 +1367,13 @@ export const registerGcsExtensionAgreementPaymentMutationGuard = (
   }
 
   resolvedNitroApp.hooks.hook(GCS_EXTENSION_AGREEMENT_PAYMENT_MUTATION_GUARD_HOOK, async payload => {
+    const { agencyConfigurations, ...context } = payload
+    const agencyConfiguration = agencyConfigurations[extensionKey]
     await handler({
-      ...payload,
-      extensionKey
+      ...context,
+      extensionKey,
+      agencyEnabled: agencyConfiguration?.enabled ?? false,
+      agencyConfig: agencyConfiguration?.config ?? {}
     })
   })
 }

@@ -20,6 +20,7 @@ import {
   GCS_EXTENSION_AGREEMENT_DELETE_GUARD_HOOK,
   GCS_EXTENSION_AGREEMENT_LIFECYCLE_LOCK_HOOK,
   GCS_EXTENSION_AGREEMENT_STREAM_CHANGE_GUARD_HOOK,
+  GCS_EXTENSION_AGREEMENT_PAYMENT_MUTATION_GUARD_HOOK,
   GCS_EXTENSION_DISABLE_GUARD_HOOK,
   GCS_EXTENSION_CONFIGURATION_GUARD_HOOK,
   GCS_EXTENSION_STATUS_REFERENCE_GUARD_HOOK,
@@ -31,6 +32,7 @@ import {
   registerGcsExtensionAgreementDeleteGuard,
   registerGcsExtensionAgreementLifecycleLock,
   registerGcsExtensionAgreementStreamChangeGuard,
+  registerGcsExtensionAgreementPaymentMutationGuard,
   registerGcsExtensionConfigurationGuard,
   registerGcsExtensionStatusReferenceGuard,
   registerGcsExtensionDisableGuard,
@@ -38,7 +40,8 @@ import {
   resolveExtensionStreamContext,
   setEncryptedExtensionSecret,
   type ExtensionSecretDatabase,
-  type GcsExtensionRouteEvent
+  type GcsExtensionRouteEvent,
+  type GcsExtensionAgreementPaymentMutationGuardHookPayload
 } from '../../src/server'
 
 interface SecretTestDatabase extends ExtensionSecretDatabase {
@@ -321,6 +324,49 @@ describe('extension SDK server helpers', () => {
     expect(getGcsExtensionRequestHeader(routeContext, 'x-extension-test')).toBe('context-header')
   })
 
+  it('publishes Agency configuration separately from stream configuration', () => {
+    const event = createTestRouteEvent({}, 'header')
+    const agencyConfig = { creditMemoBasis: 'reconciled-periods' }
+    const streamConfig = { commitmentTypes: ['1'] }
+    event.context.gcsExtension = { config: streamConfig, agencyConfig }
+    const context = createGcsExtensionRouteContext(event)
+    expect(context.config).toBe(streamConfig)
+    expect(context.agencyConfig).toBe(agencyConfig)
+    expect(createGcsExtensionRouteContext(createTestRouteEvent({}, 'header')).agencyConfig).toEqual({})
+  })
+
+  it('projects only the registered extension Agency configuration into Payment guards', async () => {
+    let registeredHook: ((payload: GcsExtensionAgreementPaymentMutationGuardHookPayload) => Promise<void>) | undefined
+    const guard = vi.fn()
+    registerGcsExtensionAgreementPaymentMutationGuard('gcs-test', guard, {
+      hooks: {
+        hook: (name: string, handler: typeof registeredHook) => {
+          expect(name).toBe(GCS_EXTENSION_AGREEMENT_PAYMENT_MUTATION_GUARD_HOOK)
+          registeredHook = handler
+        }
+      }
+    } as never)
+    const agencyConfig = { creditMemoBasis: 'all' }
+    const payload: GcsExtensionAgreementPaymentMutationGuardHookPayload = {
+      event: {}, db: {} as Transaction<unknown>, operation: 'payment.update',
+      agreementId: '1', paymentId: '2', agencyConfigurations: {
+        'gcs-test': { enabled: true, config: agencyConfig },
+        'other-extension': { enabled: true, config: { privateSetting: true } }
+      }
+    }
+    await registeredHook?.(payload)
+    expect(guard).toHaveBeenCalledWith({
+      event: payload.event, db: payload.db, operation: payload.operation,
+      agreementId: '1', paymentId: '2', extensionKey: 'gcs-test', agencyEnabled: true, agencyConfig
+    })
+    await registeredHook?.({ ...payload, agencyConfigurations: {} })
+    expect(guard.mock.calls[1]![0]).toMatchObject({ agencyEnabled: false, agencyConfig: {} })
+    await registeredHook?.({ ...payload, agencyConfigurations: { 'gcs-test': { enabled: true, config: {} } } })
+    expect(guard.mock.calls[2]![0]).toMatchObject({ agencyEnabled: true, agencyConfig: {} })
+    await registeredHook?.({ ...payload, agencyConfigurations: { 'gcs-test': { enabled: false, config: {} } } })
+    expect(guard.mock.calls[3]![0]).toMatchObject({ agencyEnabled: false, agencyConfig: {} })
+  })
+
   it('exposes the host-owned ordered write authorization phases', () => {
     const event = createTestRouteEvent({}, 'header')
     const writeAuthorization = {
@@ -340,6 +386,7 @@ describe('extension SDK server helpers', () => {
     }
     event.context.gcsExtension = {
       config: {},
+      agencyConfig: {},
       writeAuthorization,
       agreementAccess
     }
