@@ -225,6 +225,7 @@ const hostComponentNames: GcsExtensionHostComponentName[] = [
   'CommonCompletionSection',
   'CommonCompactTable',
   'CommonCurrencyInput',
+  'CommonPaymentCalculationBreakdown',
   'CommonResourceLayoutCard',
   'CommonRouteTabs',
   'CommonSaveButton',

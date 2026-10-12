@@ -121,6 +121,7 @@ export const throwFetchResponseError = async (response: Response): Promise<never
 }
 
 export type GcsExtensionSlot =
+  | 'payment.evidence'
   | 'textarea.after'
   | 'bilingual-field.after'
   | 'agreement.descriptions.after'
@@ -281,6 +282,15 @@ export interface GcsProponentDescriptionsExtensionContext {
   agencyId?: never
 }
 
+/** Payment-owned retained evidence; the extension loads its own stored calculations. */
+export interface GcsPaymentEvidenceExtensionContext {
+  kind: 'payment.evidence'
+  agreementId: string
+  paymentId: string
+  ownerType: 'fundingcasepayment'
+  ownerId: string
+}
+
 export interface GcsExtensionUnknownSlotContext {
   /** Named host contexts use their explicit SDK type so they cannot bypass its scope boundary. */
   kind?: never
@@ -288,6 +298,7 @@ export interface GcsExtensionUnknownSlotContext {
 }
 
 export type GcsExtensionSlotContext =
+  | GcsPaymentEvidenceExtensionContext
   | GcsTextareaExtensionContext
   | GcsBilingualFieldExtensionContext
   | GcsAgreementProfileExtensionContext
@@ -610,6 +621,7 @@ export type GcsExtensionHostCapability =
   | 'stream-config-modal'
   | 'stream-config-page'
   | 'entity-tabs'
+  | 'payment-evidence'
   | 'textarea-slots'
   | 'bilingual-field-slots'
   | 'create-actions'
@@ -864,6 +876,8 @@ export type ExtensionEntityTabContext = {
 
 export interface GcsExtensionRuntimeContext {
   slot: GcsExtensionSlot
+  paymentId?: string
+  agreementId?: string
   streamId?: string
   agencyId?: string
   applicantRecipientId?: string

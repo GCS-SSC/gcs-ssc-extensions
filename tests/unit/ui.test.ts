@@ -13,6 +13,7 @@ import {
   ExtensionCompletionSection,
   ExtensionCompactTable,
   ExtensionCurrencyInput,
+  ExtensionPaymentCalculationBreakdown,
   ExtensionEntityHero,
   ExtensionStatusSelect,
   ExtensionWorkflowSection,
@@ -270,5 +271,20 @@ describe('extension SDK UI runtime adapters', () => {
     expect(add).toHaveBeenCalledWith({ title: 'Saved' })
     clearExtensionUiRuntime()
     expect(() => useExtensionI18n({ en: { key: 'key' }, fr: { key: 'clé' } })).toThrow('runtime is not installed')
+  })
+})
+
+
+describe('retained Payment calculation renderer', () => {
+  afterEach(() => clearExtensionUiRuntime())
+  it('forwards the existing explanation directly to the shared host renderer', () => {
+    const runtime = createExtensionTestUiRuntime()
+    setExtensionUiRuntime(runtime)
+    const explanation = [{ label: 'Calculated payment', rows: [{ label: 'Claims', value: 'CAD $46,750.00' }], total: { label: 'Payment', value: 'CAD $46,750.00' } }]
+    const attrs = { explanation }
+    const render = (ExtensionPaymentCalculationBreakdown as { setup: Function }).setup({}, { attrs, slots: {} }) as () => { type: unknown, props: Record<string, unknown> }
+    const vnode = render()
+    expect(vnode.type).toBe(runtime.components.CommonPaymentCalculationBreakdown)
+    expect(vnode.props.explanation).toBe(explanation)
   })
 })

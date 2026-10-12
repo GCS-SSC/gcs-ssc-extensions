@@ -971,3 +971,23 @@ Handlers activate only after an extension has an enabled Agency and its migratio
 succeed. The host skips disabled extensions, while each handler rechecks the owning
 Agency before operating. Shutdown stops new dispatch and waits for active handlers
 before releasing the database lease. All external calls must have bounded timeouts.
+
+### Payment evidence
+
+Declare `payment-evidence` and contribute a `client.slots` component at
+`payment.evidence`. The host renders it in the Payment evidence view alongside
+retained host financial inputs and commitment balances, without disclosures.
+`GcsPaymentEvidenceComponentProps` (`@gcs-ssc/extensions/ui`) supplies `extensionKey`,
+`config`, and the typed `GcsPaymentEvidenceExtensionContext`: `kind`, `agreementId`,
+`paymentId`, `ownerType: 'fundingcasepayment'`, and `ownerId`.
+
+Extensions persist their own creation-time calculations and retrieve them through
+an extension-owned, host-authorized Payment handler. This slot grants no live
+financial data access. Discovery resolves the exact Payment, checks its Viewer
+permission and owning Agency/Stream enablement, and rejects conflicting caller
+scope. The capability is independent of `textarea-slots` and `entity-tabs`.
+
+Render the stored explanation with `ExtensionPaymentCalculationBreakdown` from the
+UI entry point. Its `explanation` prop uses the existing non-null
+`GcsPaymentAmountCalculatorResult['explanation']` contract, preserving the wizard's
+localized arithmetic and total layout without recreating it in the extension.

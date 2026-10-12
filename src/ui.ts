@@ -3,6 +3,7 @@ import { computed, defineComponent, h } from 'vue'
 import type { Component, Ref } from 'vue'
 import { throwFetchResponseError } from './index'
 import type {
+  GcsPaymentEvidenceExtensionContext,
   GcsExtensionBilingualLabel,
   GcsExtensionCreateActionMode,
   GcsExtensionCreateOperation,
@@ -88,6 +89,7 @@ export type GcsExtensionHostComponentName =
   | 'CommonCompletionSection'
   | 'CommonCompactTable'
   | 'CommonCurrencyInput'
+  | 'CommonPaymentCalculationBreakdown'
   | 'CommonResourceLayoutCard'
   | 'CommonRouteTabs'
   | 'CommonSaveButton'
@@ -306,6 +308,18 @@ export interface GcsFileStorageMetadataComponentProps {
 /** Emits implemented by a provider-owned attachment metadata form. */
 export interface GcsFileStorageMetadataComponentEmits {
   (event: 'update:modelValue', value: Record<string, JsonValue>): void
+}
+
+export interface GcsExtensionPaymentCalculationBreakdownProps {
+  explanation: NonNullable<GcsPaymentAmountCalculatorResult['explanation']>
+}
+
+export const ExtensionPaymentCalculationBreakdown = createExtensionHostComponent<GcsExtensionPaymentCalculationBreakdownProps>('CommonPaymentCalculationBreakdown')
+
+export interface GcsPaymentEvidenceComponentProps {
+  extensionKey: string
+  context: GcsPaymentEvidenceExtensionContext
+  config: GcsExtensionJsonConfig
 }
 
 export interface GcsEntityTabComponentProps {
