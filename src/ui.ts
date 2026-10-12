@@ -348,6 +348,14 @@ export interface GcsPaymentAmountCalculatorResult {
     label: string
     value: GcsPaymentAmountCalculatorMoney
   }>
+  /** Localized calculation ledgers; values are display text, never calculation inputs. */
+  explanation?: Array<{
+    label: string
+    rows: Array<{ label: string, value: string, operator?: '+' | '−' | '×' }>
+    total: { label: string, value: string }
+    note?: string
+    emphasis?: boolean
+  }>
   loading?: boolean
   error?: string | null
 }

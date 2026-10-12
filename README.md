@@ -18,7 +18,7 @@ authoritative. Extensions own any corresponding interface labels in their local 
 
 Extension-to-host money writes use `GcsExtensionMoneyInput` from `@gcs-ssc/extensions/server`. Send canonical plain decimal text with at most two fractional digits. Text is authoritative and supports the host's full persisted money range; for example, use `'1234.56'` rather than `1234.56`.
 
-Payment amount calculators emit `GcsPaymentAmountCalculatorResult` from `@gcs-ssc/extensions/ui`. Its monetary result and detail fields use canonical two-decimal strings; calculators must not emit JavaScript numbers for money.
+Payment amount calculators emit `GcsPaymentAmountCalculatorResult` from `@gcs-ssc/extensions/ui`. Its monetary result and detail fields use canonical two-decimal strings; calculators must not emit JavaScript numbers for money. Optional `explanation` ledgers carry extension-localized labels, operand rows with formatted values and arithmetic operators, a total, and an optional short note, for the host-owned Calculation details disclosure alongside Financial inputs and Commitment lines. Calculators should publish updated explanation text on locale changes without recalculating.
 
 Financial coding allocators declare `requiredHostCapabilities: ['coding-allocator']` and
 `codingAllocator: { path: './server/allocator.ts' }`. The server module exports a default
