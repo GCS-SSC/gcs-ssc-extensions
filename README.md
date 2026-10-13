@@ -24,17 +24,43 @@ Financial coding allocators declare `requiredHostCapabilities: ['coding-allocato
 `codingAllocator: { path: './server/allocator.ts' }`. The server module exports a default
 `GcsCodingAllocator` from `@gcs-ssc/extensions/server`. Its context supplies the exact total,
 Agreement/Agency/Stream and currency, the output kind (with the user-defined Commitment
-type when applicable), the valid stream-selected output catalog, the Commitment catalog,
+type and Commitment ID when applicable), the valid output catalog, the Commitment catalog,
 and existing Commitment rows with host-calculated paid floors. Payment outputs also identify
 the selected Commitment, Commitment type and stable Agreement budget fiscal year, and
 `codingAvailableAmounts` supplies remaining capacity once per coding key across duplicate rows.
 The active `db` transaction permits reads of extension-owned storage only; do not query or
 mutate host tables. Return `null` to leave an unsupported output or Commitment type manual,
-or return only canonical
-`{ codingLineId, amount }` entries. The host requires a unique valid subset whose exact sum
+or return canonical `{ codingLineId, amount }` entries. A `{ lines, policy }` envelope
+may additionally capture JSON-safe allocation policy for later draft redistribution. The host requires a unique valid subset whose exact sum
 matches the requested total and preserves already-paid Commitment amounts. It owns
 authorization and persistence. Without an enabled allocator, host drafts retain manual
 coding. Journal Vouchers and Corrections do not use the allocator.
+
+All allocator output catalogs use eligible Stream selections: `codingLineId` is
+that selection's ID, while `agencyChartOfAccountId` identifies its Agency account.
+Agency configuration never expands availability. Receivable catalogs retain the
+requested fiscal year. Automatic Credit Memo catalogs may span eligible selected
+account years and receive an authoritative effective date; manual Credit Memo
+coding retains its originating AR-year constraints. Returned allocation lines must
+use eligible Stream IDs even when the provider's configuration and opaque retained
+policy use Agency account IDs. Providers map those Agency identities through the
+supplied catalog, rejecting missing or ambiguous matches without guessing ID namespaces.
+
+The host may supply retained policy and captured dimensions/optional links for draft
+redistribution. Captured metadata does not waive current Stream membership, including
+older evidence bearing an Agency scope. Configuration guards receive an Agency/transaction-bound
+`codingAccounts.list({ kind, currency, agencyFiscalYearId? })` for authoring validation
+and metadata only; this service grants no runtime catalog availability.
+
+SDK 0.3.15 supplies Credit Memo outputs with `activeCommitments`, ordered by newest
+successful Completion first. Each candidate carries its Commitment ID and type;
+the host filters active, nondeleted Commitments by the bound Agreement and currency
+and verifies the latest Completion attempt succeeded. Providers may choose an
+eligible type and read their own retained matrix association from extension KV.
+The host does not interpret extension allocation versions or weights.
+Configuration guards may also request `kind: 'commitment'` from their bound Agency
+catalogue service to validate remap source accounts.
+
 
 Finite JavaScript numbers remain accepted only for backwards compatibility. The host accepts them only when they round-trip to exact cents within the safe integer range. New extensions must not use numbers for money, and must not round, truncate, or convert money through `Number` before calling a host write contract.
 
@@ -47,6 +73,16 @@ The host binds this read to the canonical Agreement and its active database or w
 `getCommitmentLinePaymentCoverage({ commitmentLineId, excludePaymentId? })` returns the canonical post-JV `paidAmount` for a line in the bound Agreement. `validatePaymentAllocations({ allocations: [{ commitmentLineId, amount }], excludePaymentId? })` validates proposed generated lines together, enforcing both exact-row limits and shared coding pools. Validate the batch inside the protected write transaction before inserting generated lines; individual duplicate-row ceilings cannot be summed.
 
 The host owns active commitment selection, exact Payment coverage, successful JV/reversal effects, posted Correction effects, Agency chart matching, and duplicate coding pools. Route reads refresh Agreement Viewer authority and extension enablement. This projection grants no source API access and performs no write or posting. Protected writes continue to use the normal locked host transaction. Do not fall back to a local accounting calculation when the capability is absent.
+
+SDK 0.3.14 adds `getCostAllocationContext({ transaction? })`, returning finalized signed
+paid amounts once per Agency Commitment account/fiscal year and `hasPendingEffects`.
+Current bilingual coding/year labels are included for operational display. Draft and
+pending Payment reservations are not actual paid; they remain protected by existing
+capacity APIs. The optional transaction is a real active host transaction and does not
+replace the bound Agreement. Authorized lifecycle adapter contexts receive the service
+for canonically resolved Agreement owners. Consumers check pending effects after locking
+and retain host financial validation rather than reconstructing balances from weights.
+
 
 `getPaymentCalculation({ fiscalYearId, commitmentTypeId, paymentType, periodStart, periodEnd, currency?, releaseHoldback?, holdbackReleaseAmount?, excludePaymentId? })` supplies exact financial inputs, not an entitlement or ceiling. The response contains `agreementId`, `currency`, `commitmentRemaining`, `totalClaimsToLastClaimMonth`, `totalForecastToLastClaimMonth`, `totalForecastToPeriodEnd`, `totalPaymentsToDate`, `totalCreditMemos`, `totalCreditMemosForReconciledPeriods`, `agreementTotal`, `finalFiscalYearTotal`, `availableForDisbursementBeforeHoldback`, `holdbackPercent`, and `holdbackBasis`. All monetary values are exact decimal strings. The host selects successful Claim reconciliations, applied Claim reductions, current budgets, the latest active Forecast version and shared coding capacity. Automated Payments owns entitlement, holdback, release and ceiling arithmetic; retain its calculated response as versioned extension-owned evidence.
 
@@ -941,6 +977,18 @@ owns translation UI, its catalogs, terminology composition and asynchronous work
 
 ### Local item tables
 
+SDK 0.3.15 exposes `ExtensionSelectableTable` for switching among records or
+versions, using the same host component as Claim Reconciliation. Supply `items`
+with stable `id` values, `selectedId`, a localized `caption`, optional
+`getRowAriaLabel(item, selected)` and `isSelectable(item)`, and handle `@select`.
+The `header` slot supplies column headers. The `row` slot receives `item`,
+`selected`, `selectable`, `actionLabel` and a guarded `select()` action; place
+that action on an explicit button. The host owns the selected-row appearance
+and accessible scrolling container. Extensions retain record content, labels
+and permission or pending-work rules. `GcsExtensionSelectableTableProps<Item>`
+is available for typed prop objects. This uses the existing `extension-ui`
+capability and requires no additional manifest contribution.
+
 SDK 0.3.9 exposes `ExtensionCompactTable` through `@gcs-ssc/extensions/ui`.
 It delegates to the host's standard compact table and preserves `data`,
 `columns`, `emptyText`, `ui`, and named cell slots such as `actions-cell`.
@@ -1009,3 +1057,24 @@ Render the stored explanation with `ExtensionPaymentCalculationBreakdown` from t
 UI entry point. Its `explanation` prop uses the existing non-null
 `GcsPaymentAmountCalculatorResult['explanation']` contract, preserving the wizard's
 localized arithmetic and total layout without recreating it in the extension.
+
+## Stream Workflow configuration (SDK 0.3.16)
+
+`ExtensionStreamWorkflowLinks` renders the host Stream Workflow relationship table
+for one declared entity type. Supply `transferPaymentId`, `streamId`, `agencyId`,
+and the exact qualified `entityType`. `canUpdate` defaults to false; an authorized
+configuration editor may pass true. The host independently enforces Program
+Contributor access for linking and unlinking. The picker searches published
+Agency definitions of that exact published type; unpublished target edits do not
+change picker eligibility. Existing retired links remain visible.
+
+Workflow links are stored in the host Stream association table and apply when
+added or removed; they do not belong in extension configuration JSON. Extensions
+retain their section headings and interface catalogs. The host owns the table,
+lookup, validation, confirmation, navigation, and localized feedback.
+
+Agency Workflow create/detail editors use the authorized
+`/api/agency/:agencyId/workflows/entity-types` catalog, containing bilingual
+registry labels and supported purposes for core types and enabled Agency
+extensions. Workflow execution still resolves the exact target, enablement,
+assignment, status and publication through the existing lifecycle services.

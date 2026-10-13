@@ -85,12 +85,16 @@ export interface GcsExtensionFetchResult<T> {
 }
 
 export type GcsExtensionHostComponentName =
+  | 'CommonDetailPage'
+  | 'CommonDetailWorkspace'
   | 'CommonEntityEditorWorkspace'
   | 'CommonEntityHero'
   | 'CommonAssessmentSchemaAccordionSection'
   | 'CommonAssessmentSchemaPageSection'
   | 'CommonCompletionSection'
+  | 'CommonCompletionPanel'
   | 'CommonCompactTable'
+  | 'CommonSelectableTable'
   | 'CommonCurrencyInput'
   | 'CommonFlowDiagram'
   | 'CommonPaymentCalculationBreakdown'
@@ -100,6 +104,7 @@ export type GcsExtensionHostComponentName =
   | 'CommonSection'
   | 'CommonStatusBadge'
   | 'CommonStatusSelect'
+  | 'CommonStreamWorkflowLinks'
   | 'CommonWorkflowSection'
   | 'CommonWorkflowSupplementaryInformation'
   | 'UAccordion'
@@ -130,6 +135,7 @@ export interface GcsExtensionUiRuntime {
     ) => GcsGroupedTableExpansionResult<Row>
     useI18n: () => GcsExtensionI18n
     useToast: () => GcsExtensionToast
+    useUrlTabState: (options: GcsExtensionUrlTabStateOptions) => GcsExtensionUrlTabState
   }
 }
 
@@ -180,6 +186,43 @@ const createExtensionHostComponent = <Props extends object = Record<string, unkn
     }
   })
 
+export interface GcsExtensionDetailTabItem {
+  key: string
+  label?: string
+  value: string
+  icon?: string
+}
+
+export interface GcsExtensionUrlTabStateOptions {
+  tabs: Ref<GcsExtensionDetailTabItem[]> | GcsExtensionDetailTabItem[]
+  defaultTab?: Ref<string> | string
+  queryKey?: string
+  historyMode?: 'replace' | 'push'
+}
+
+export interface GcsExtensionUrlTabState {
+  tabs: Ref<GcsExtensionDetailTabItem[]>
+  selectedTab: Ref<string>
+  selectedTabKey: Ref<string>
+  defaultTab: Ref<string>
+}
+
+export interface GcsExtensionDetailPageProps {
+  id: string
+  breadcrumbItems: Array<{ label: string; to?: string; icon?: string }>
+  collapsed?: boolean
+}
+
+export interface GcsExtensionDetailWorkspaceProps {
+  items: GcsExtensionDetailTabItem[]
+  modelValue: string
+  contentTestId?: string
+  priorityValues?: string[]
+  sectionDescription?: string
+}
+
+export const ExtensionDetailPage = createExtensionHostComponent<GcsExtensionDetailPageProps>('CommonDetailPage')
+export const ExtensionDetailWorkspace = createExtensionHostComponent<GcsExtensionDetailWorkspaceProps>('CommonDetailWorkspace')
 export const ExtensionEntityEditorWorkspace = createExtensionHostComponent('CommonEntityEditorWorkspace')
 export interface GcsExtensionEntityHeroProps {
   isCollapsed?: boolean
@@ -239,14 +282,53 @@ export interface GcsExtensionCompletionSectionProps {
   showDivider?: boolean
 }
 export const ExtensionCompletionSection = createExtensionHostComponent<GcsExtensionCompletionSectionProps>('CommonCompletionSection')
+/** Extension-owned resolved text; shared completion controls retain their host labels. */
+export interface GcsExtensionCompletionLabels {
+  title: string
+  description: string
+  statusComplete: string
+  statusLocked: string
+  commentPlaceholder: string
+  completeAction: string
+  completedSuccess: string
+  confirmationMessage?: string
+}
+export interface GcsExtensionCompletionPanelProps {
+  entityType: string
+  entityId: string
+  canComplete: boolean
+  canWorkWorkflow: boolean
+  labels: GcsExtensionCompletionLabels
+  refreshKey?: number
+  showHeader?: boolean
+  showDivider?: boolean
+}
+export const ExtensionCompletionPanel = createExtensionHostComponent<GcsExtensionCompletionPanelProps>('CommonCompletionPanel')
 export const ExtensionCompactTable = createExtensionHostComponent('CommonCompactTable')
 export const ExtensionFlowDiagram = createExtensionHostComponent<FlowDiagramProps>('CommonFlowDiagram')
+export interface GcsExtensionSelectableTableProps<Item extends { id: string | number } = { id: string | number }> {
+  items: Item[]
+  selectedId?: string | number | null
+  caption: string
+  getRowAriaLabel?: (item: Item, selected: boolean) => string
+  isSelectable?: (item: Item) => boolean
+  onSelect?: (item: Item) => void
+}
+export const ExtensionSelectableTable = createExtensionHostComponent<GcsExtensionSelectableTableProps<any>>('CommonSelectableTable')
 export const ExtensionResourceLayoutCard = createExtensionHostComponent('CommonResourceLayoutCard')
 export const ExtensionRouteTabs = createExtensionHostComponent('CommonRouteTabs')
 export const ExtensionSaveButton = createExtensionHostComponent('CommonSaveButton')
 export const ExtensionSection = createExtensionHostComponent('CommonSection')
 export const ExtensionStatusBadge = createExtensionHostComponent('CommonStatusBadge')
 export const ExtensionStatusSelect = createExtensionHostComponent('CommonStatusSelect')
+export interface GcsExtensionStreamWorkflowLinksProps {
+  transferPaymentId: string
+  streamId: string
+  agencyId: string
+  entityType: string
+  canUpdate?: boolean
+}
+export const ExtensionStreamWorkflowLinks = createExtensionHostComponent<GcsExtensionStreamWorkflowLinksProps>('CommonStreamWorkflowLinks')
 export interface GcsExtensionWorkflowSectionProps {
   entityType: string
   entityId: string
@@ -257,6 +339,8 @@ export const ExtensionWorkflowSection = createExtensionHostComponent<GcsExtensio
 export interface GcsExtensionSupplementaryInformationSectionProps {
   entityType: string
   entityId: string
+  showHeader?: boolean
+  showDescription?: boolean
 }
 export const ExtensionSupplementaryInformationSection = createExtensionHostComponent<GcsExtensionSupplementaryInformationSectionProps>('CommonWorkflowSupplementaryInformation')
 export const ExtensionTextarea = createExtensionHostComponent('UTextarea')
@@ -332,6 +416,27 @@ export interface GcsEntityTabComponentProps {
   context: ExtensionEntityTabContext
   config: GcsExtensionJsonConfig
   rbac: GcsExtensionRbacRequirement
+  navigation?: GcsExtensionRecordNavigation
+  agreementContext?: { titleEn: string; titleFr: string; agreementNumber: string }
+  canUpdate?: boolean
+  canDelete?: boolean
+  canWork?: boolean
+}
+
+export interface GcsExtensionEntityRecordPermissions {
+  canUpdate: boolean
+  canDelete: boolean
+  canWork: boolean
+}
+
+export interface GcsExtensionRecordNavigation {
+  collectionHref: string
+  recordHref: (recordId: string) => string
+}
+
+export interface GcsEntityTabDetailComponentProps extends GcsEntityTabComponentProps {
+  recordId: string
+  navigation: GcsExtensionRecordNavigation
 }
 
 export interface GcsCreateActionComponentProps extends GcsEntityTabComponentProps {
@@ -656,6 +761,10 @@ export const useExtensionI18n = <Catalog extends GcsExtensionMessages>(messages:
  * Resolves the host-provided extension toast composable.
  */
 export const useExtensionToast = () => getExtensionUiRuntime().composables.useToast()
+
+/** Synchronizes extension detail navigation with the host route's section query. */
+export const useExtensionUrlTabState = (options: GcsExtensionUrlTabStateOptions): GcsExtensionUrlTabState =>
+  getExtensionUiRuntime().composables.useUrlTabState(options)
 
 /**
  * Delegates reactive fetching to the host extension UI runtime.

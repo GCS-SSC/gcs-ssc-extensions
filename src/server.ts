@@ -280,6 +280,8 @@ export interface GcsLifecycleEntityTarget {
 }
 
 export interface GcsLifecycleEntityAdapterContext {
+  /** Bound only after canonical Agreement ownership and lifecycle authorization are resolved. */
+  agreementFinancials?: GcsExtensionAgreementFinancials
   event: unknown
   transaction: Transaction<unknown>
   actorUserId: string
@@ -569,6 +571,10 @@ export type GcsExtensionStatusReferenceGuardHookPayload = Omit<
 >
 
 export interface GcsExtensionConfigurationGuardContext {
+  /** Authoritative active Agency account catalogue, bound to the configuration owner and transaction. */
+  codingAccounts?: { list: (input: {
+    kind: 'commitment' | 'account_receivable' | 'credit_memo'; currency: string; agencyFiscalYearId?: string
+  }) => Promise<GcsCodingAllocationCatalogLine[]> }
   extensionKey: string
   targetExtensionKey: string
   event: unknown
@@ -960,6 +966,11 @@ export interface GcsExtensionPaymentCalculationResult {
 }
 
 export interface GcsExtensionAgreementFinancials {
+  /** Finalized effective paid by Agency coding key; unfinished funding effects block allocation. */
+  getCostAllocationContext: (input?: { transaction?: Transaction<unknown> }) => Promise<{
+    agreementId: string; hasPendingEffects: boolean
+    codingPaidAmounts: Array<{ agencyChartOfAccountId: string; agencyFiscalYearId: string; paidAmount: string; labelEn?: string; labelFr?: string; fiscalYearDisplay?: string }>
+  }>
   /** Host-owned exact financial inputs, bound to this authorized Agreement. */
   getPaymentCalculation: (input: GcsExtensionPaymentCalculationInput) => Promise<GcsExtensionPaymentCalculationResult>
   /** Actual period accounting and positive posted creditMemoAmount through the fiscal year, regardless of receipt month; denomination follows the Agreement. */
@@ -2197,12 +2208,15 @@ export type GcsAgreementNumberProvider = (context: GcsAgreementNumberProviderCon
 
 /** Financial output type; commitment types are user-defined stream catalog identities. */
 export type GcsCodingAllocationOutput =
-  | { kind: 'commitment'; commitmentTypeId: string }
+  | { kind: 'commitment'; commitmentTypeId: string; commitmentId?: string }
   | { kind: 'payment'; commitmentId: string; commitmentTypeId: string; fiscalYearId: string }
-  | { kind: 'receivable' | 'credit-memo' }
+  | { kind: 'receivable'; fiscalYearId?: string }
+  | { kind: 'credit-memo'; effectiveDate?: string;
+    /** Active same-Agreement/currency Commitments with successful Completion, newest Completion first. */
+    activeCommitments?: Array<{ commitmentId: string; commitmentTypeId: string }> }
 
 export interface GcsCodingAllocationCatalogLine {
-  /** Stream-selected catalog identity; this is the identity returned in allocations. */
+  /** Bound catalog identity: Stream selection for financial allocators, Agency account only for configuration guards. */
   codingLineId: string
   agencyChartOfAccountId: string
   agencyFiscalYearId: string
@@ -2219,6 +2233,8 @@ export interface GcsCodingAllocatorContext {
   streamId: string
   amount: string
   currency: string
+  /** Retained extension policy for amount-only edits. */
+  retainedPolicy?: JsonValue
   output: GcsCodingAllocationOutput
   codingLines: GcsCodingAllocationCatalogLine[]
   /** Complete stream-selected commitment catalog, also supplied for Receivable/Credit Memo outputs. */
@@ -2233,5 +2249,8 @@ export interface GcsCodingAllocatorContext {
 }
 
 /** Allocators return exact decimal money, or null for manual coding; the host owns validation and persistence. */
+export type GcsCodingAllocationResult = Array<{ codingLineId: string; amount: string }>
+  | { lines: Array<{ codingLineId: string; amount: string }>; policy: JsonValue }
+
 export type GcsCodingAllocator = (context: GcsCodingAllocatorContext) =>
-  Promise<Array<{ codingLineId: string; amount: string }> | null> | Array<{ codingLineId: string; amount: string }> | null
+  Promise<GcsCodingAllocationResult | null> | GcsCodingAllocationResult | null

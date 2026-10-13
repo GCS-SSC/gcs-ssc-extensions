@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { h } from 'vue'
+import { createSSRApp, h } from 'vue'
+import { renderToString } from 'vue/server-renderer'
 import {
   createExtensionTestRouteResponse,
   createExtensionTestUiRuntime,
@@ -10,10 +11,11 @@ import { clearExtensionUiRuntime, getExtensionUiRuntime } from '../../src/ui'
 const renderComponent = (
   component: unknown,
   attrs: Record<string, unknown> = {},
-  slots: Record<string, (...args: unknown[]) => unknown> = {}
+  slots: Record<string, (...args: unknown[]) => unknown> = {},
+  props: Record<string, unknown> = {}
 ) => {
   const emit = vi.fn()
-  const render = (component as { setup: Function }).setup({}, { attrs, emit, slots }) as () => any
+  const render = (component as { setup: Function }).setup(props, { attrs, emit, slots }) as () => any
   return { emit, vnode: render() }
 }
 
@@ -50,6 +52,58 @@ describe('extension SDK testing runtime', () => {
     expect(empty.vnode.children[1].children[0].children[0].children).toBe('No items')
     const slot = renderComponent(runtime.components.CommonCompactTable, {}, { empty: () => 'Custom empty' })
     expect(slot.vnode.children[1].children[0].children[0].children).toBe('Custom empty')
+  })
+
+  it('renders selectable record captions and scoped row state, with selection gated at activation', () => {
+    const runtime = createExtensionTestUiRuntime()
+    const items = [{ id: '9007199254740993', label: 'Current' }, { id: '2', label: 'Previous' }]
+    let enabled = true
+    const rows = vi.fn((state: { item: typeof items[number]; selected: boolean; selectable: boolean; actionLabel?: string; select: () => void }) =>
+      h('td', [h('button', { disabled: !state.selectable, 'aria-label': state.actionLabel, onClick: state.select }, state.item.label)]))
+    const header = vi.fn(() => h('th', 'Version'))
+    const table = renderComponent(runtime.components.CommonSelectableTable, {}, { header, row: rows } as never, {
+      items, selectedId: items[0]!.id, caption: 'Versions de répartition',
+      isSelectable: (item: typeof items[number]) => enabled && item.id === items[0]!.id,
+      getRowAriaLabel: (item: typeof items[number], selected: boolean) => `${selected ? 'Selected' : 'View'} ${item.label}`
+    })
+    expect(table.vnode.props).toMatchObject({ role: 'group', tabindex: 0, 'aria-label': 'Versions de répartition' })
+    const nativeTable = table.vnode.children[0]
+    expect(nativeTable.children[0].children).toBe('Versions de répartition')
+    expect(header).toHaveBeenCalledOnce()
+    expect(nativeTable.children[2].children[0].props['aria-current']).toBe('true')
+    expect(rows.mock.calls[0]![0]).toMatchObject({ item: items[0], selected: true, selectable: true, actionLabel: 'Selected Current' })
+    expect(rows.mock.calls[1]![0]).toMatchObject({ item: items[1], selected: false, selectable: false, actionLabel: undefined })
+    rows.mock.calls[0]![0].select()
+    rows.mock.calls[1]![0].select()
+    expect(table.emit).toHaveBeenCalledOnce()
+    expect(table.emit).toHaveBeenCalledWith('select', items[0])
+    enabled = false
+    rows.mock.calls[0]![0].select()
+    expect(table.emit).toHaveBeenCalledOnce()
+    const empty = renderComponent(runtime.components.CommonSelectableTable, {}, {}, { items: [], selectedId: null, caption: 'Versions' })
+    expect(empty.vnode.children[0].children[2].children).toEqual([])
+  })
+
+  it('normalizes real Vue kebab-case selectable-table bindings without losing disabled or selected state', async () => {
+    const runtime = createExtensionTestUiRuntime()
+    const items = [{ id: '1' }, { id: '2' }]
+    const rows = vi.fn((state: { selected: boolean; selectable: boolean; actionLabel?: string; select: () => void }) => h('td', String(state.selected)))
+    const selected = vi.fn()
+    const app = createSSRApp({ render: () => h(runtime.components.CommonSelectableTable, {
+      items, caption: 'Versions', 'selected-id': '2', 'is-selectable': () => false, onSelect: selected,
+      'get-row-aria-label': (_item: unknown, current: boolean) => current ? 'Selected version' : 'View version'
+    }, { row: rows }) })
+    expect(await renderToString(app)).toContain('aria-current="true"')
+    expect(rows.mock.calls[0]![0]).toMatchObject({ selected: false, selectable: false, actionLabel: undefined })
+    expect(rows.mock.calls[1]![0]).toMatchObject({ selected: true, selectable: false, actionLabel: undefined })
+    rows.mock.calls[1]![0].select()
+    expect(selected).not.toHaveBeenCalled()
+    const enabledRows = vi.fn((state: { actionLabel?: string }) => h('td', state.actionLabel))
+    await renderToString(createSSRApp({ render: () => h(runtime.components.CommonSelectableTable, {
+      items, caption: 'Versions', 'selected-id': '2',
+      'get-row-aria-label': (_item: unknown, current: boolean) => current ? 'Selected version' : 'View version'
+    }, { row: enabledRows }) }))
+    expect(enabledRows.mock.calls[1]![0]).toMatchObject({ actionLabel: 'Selected version' })
   })
 
   it('provides the standard extension route error response', () => {

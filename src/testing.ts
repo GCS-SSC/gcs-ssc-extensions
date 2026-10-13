@@ -1,4 +1,4 @@
-import { defineComponent, h, ref } from 'vue'
+import { computed, defineComponent, h, ref, toValue } from 'vue'
 import type { Component, Ref } from 'vue'
 import {
   setExtensionUiRuntime
@@ -174,6 +174,38 @@ const createExtensionTestComponent = (name: GcsExtensionHostComponentName): Comp
     })
   }
 
+  if (name === 'CommonSelectableTable') {
+    return defineComponent({
+      name,
+      inheritAttrs: false,
+      emits: ['select'],
+      props: ['items', 'selectedId', 'caption', 'getRowAriaLabel', 'isSelectable'],
+      setup(props, { attrs, emit, slots }) {
+        return () => {
+          const { items, selectedId, caption, getRowAriaLabel } = props
+          const canSelect = (item: { id: string | number }) => typeof props.isSelectable !== 'function' || props.isSelectable(item)
+          return h('div', { ...attrs, role: 'group', tabindex: 0, 'aria-label': caption }, [
+            h('table', {}, [
+              h('caption', { class: 'sr-only' }, String(caption ?? '')),
+              h('thead', {}, [h('tr', {}, slots.header?.())]),
+              h('tbody', {}, (Array.isArray(items) ? items : []).map(item => {
+                const selected = selectedId !== null && selectedId !== undefined && String(item.id) === String(selectedId)
+                const selectable = canSelect(item)
+                return h('tr', { key: String(item.id), 'aria-current': selected ? 'true' : undefined }, slots.row?.({
+                  item,
+                  selected,
+                  selectable,
+                  actionLabel: selectable && typeof getRowAriaLabel === 'function' ? getRowAriaLabel(item, selected) : undefined,
+                  select: () => { if (canSelect(item)) emit('select', item) }
+                }))
+              }))
+            ])
+          ])
+        }
+      }
+    })
+  }
+
   if (name === 'CommonCompactTable') {
     return defineComponent({
       name,
@@ -208,6 +240,34 @@ const createExtensionTestComponent = (name: GcsExtensionHostComponentName): Comp
     })
   }
 
+  if (name === 'CommonDetailPage') {
+    return defineComponent({
+      name,
+      inheritAttrs: false,
+      setup(_, { attrs, slots }) {
+        return () => h('div', attrs, slots.body?.() ?? slots.default?.())
+      }
+    })
+  }
+
+  if (name === 'CommonDetailWorkspace') {
+    return defineComponent({
+      name,
+      inheritAttrs: false,
+      setup(_, { attrs, slots, emit }) {
+        return () => h('div', [
+          h('nav', (Array.isArray(attrs.items) ? attrs.items : []).map(item => h('button', {
+            'data-section': item.value,
+            onClick: () => emit('update:modelValue', item.value)
+          }, item.label ?? item.key))),
+          slots.actions?.(),
+          slots.notices?.(),
+          slots.default?.()
+        ])
+      }
+    })
+  }
+
   return defineComponent({
     name,
     inheritAttrs: false,
@@ -218,12 +278,16 @@ const createExtensionTestComponent = (name: GcsExtensionHostComponentName): Comp
 }
 
 const hostComponentNames: GcsExtensionHostComponentName[] = [
+  'CommonDetailPage',
+  'CommonDetailWorkspace',
   'CommonEntityEditorWorkspace',
   'CommonEntityHero',
   'CommonAssessmentSchemaAccordionSection',
   'CommonAssessmentSchemaPageSection',
   'CommonCompletionSection',
+  'CommonCompletionPanel',
   'CommonCompactTable',
+  'CommonSelectableTable',
   'CommonCurrencyInput',
   'CommonFlowDiagram',
   'CommonPaymentCalculationBreakdown',
@@ -233,6 +297,7 @@ const hostComponentNames: GcsExtensionHostComponentName[] = [
   'CommonSection',
   'CommonStatusBadge',
   'CommonStatusSelect',
+  'CommonStreamWorkflowLinks',
   'CommonWorkflowSection',
   'CommonWorkflowSupplementaryInformation',
   'UAccordion',
@@ -318,6 +383,17 @@ export const createExtensionTestUiRuntime = (
       useToast: () => ({
         add: () => undefined
       }),
+      useUrlTabState: options => {
+        const tabs = computed(() => toValue(options.tabs))
+        const defaultTab = computed(() => toValue(options.defaultTab) ?? tabs.value[0]?.value ?? '')
+        const selectedTab = ref(defaultTab.value)
+        return {
+          tabs,
+          selectedTab,
+          selectedTabKey: computed(() => tabs.value.find(item => item.value === selectedTab.value)?.key ?? ''),
+          defaultTab
+        }
+      },
       ...overrides.composables
     }
   }

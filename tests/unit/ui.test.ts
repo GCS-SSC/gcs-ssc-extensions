@@ -11,12 +11,17 @@ import {
   createHostLifecycleApiClient,
   ExtensionAssessmentSchemaPageSection,
   ExtensionCompletionSection,
+  ExtensionCompletionPanel,
+  ExtensionDetailPage,
+  ExtensionDetailWorkspace,
   ExtensionCompactTable,
+  ExtensionSelectableTable,
   ExtensionCurrencyInput,
   ExtensionFlowDiagram,
   ExtensionPaymentCalculationBreakdown,
   ExtensionEntityHero,
   ExtensionStatusSelect,
+  ExtensionStreamWorkflowLinks,
   ExtensionWorkflowSection,
   ExtensionSupplementaryInformationSection,
   setExtensionUiRuntime,
@@ -26,12 +31,15 @@ import {
   useExtensionGroupedTableExpansion,
   useExtensionI18n,
   useExtensionToast,
+  useExtensionUrlTabState,
   useHostApi,
   useHostLifecycleApi
 } from '../../src/ui'
 import type {
   FlowDiagramDefinition,
   GcsExtensionFetchResult,
+  GcsExtensionSelectableTableProps,
+  GcsExtensionSupplementaryInformationSectionProps,
   GcsGroupedTableExpandedState,
   GcsGroupedTableExpansionResult
 } from '../../src/ui'
@@ -157,6 +165,30 @@ describe('extension SDK API clients', () => {
 })
 
 describe('extension SDK UI runtime adapters', () => {
+  it('forwards selectable record props, guarded selection callbacks and scoped slots to the existing host component', () => {
+    const runtime = createExtensionTestUiRuntime()
+    setExtensionUiRuntime(runtime)
+    const item = { id: '9007199254740993', versionNumber: 3 }
+    const select = vi.fn()
+    const attrs: GcsExtensionSelectableTableProps<typeof item> = {
+      items: [item], selectedId: item.id, caption: 'Allocation versions',
+      getRowAriaLabel: (version, selected) => `${selected ? 'Selected' : 'View'} version ${version.versionNumber}`,
+      isSelectable: version => version.id === item.id,
+      onSelect: select
+    }
+    const slots = { header: vi.fn(), row: vi.fn() }
+    const render = (ExtensionSelectableTable as { setup: Function }).setup({}, { attrs, slots }) as () => { type: unknown; props: Record<string, unknown>; children: unknown }
+    const vnode = render()
+    expect(vnode.type).toBe(runtime.components.CommonSelectableTable)
+    expect(vnode.props).toMatchObject(attrs)
+    expect((vnode.children as typeof slots).header).toBe(slots.header)
+    expect((vnode.children as typeof slots).row).toBe(slots.row)
+    ;(vnode.props.onSelect as (version: typeof item) => void)(item)
+    expect(select).toHaveBeenCalledWith(item)
+    expectTypeOf(attrs.selectedId).toEqualTypeOf<string | number | null | undefined>()
+    clearExtensionUiRuntime()
+  })
+
   it('exposes the host status selector through the public UI runtime', () => {
     const runtime = createExtensionTestUiRuntime()
     setExtensionUiRuntime(runtime)
@@ -178,6 +210,73 @@ describe('extension SDK UI runtime adapters', () => {
     expect(runtime.components.CommonWorkflowSupplementaryInformation).toBeTruthy()
     expect(runtime.components.CommonStatusSelect).toBeTruthy()
 
+    clearExtensionUiRuntime()
+  })
+
+  it('forwards extension record shells and literal completion labels through the host runtime', () => {
+    const runtime = createExtensionTestUiRuntime()
+    setExtensionUiRuntime(runtime)
+    const wrappers = [
+      [ExtensionDetailPage, runtime.components.CommonDetailPage],
+      [ExtensionDetailWorkspace, runtime.components.CommonDetailWorkspace],
+      [ExtensionCompletionPanel, runtime.components.CommonCompletionPanel]
+    ] as const
+    const attrs = { recordId: '42', labels: { title: 'Allocation completion' }, 'onUpdate:modelValue': vi.fn() }
+    const slots = { body: vi.fn(), actions: vi.fn(), default: vi.fn() }
+    for (const [wrapper, host] of wrappers) {
+      const render = (wrapper as { setup: Function }).setup({}, { attrs, slots }) as () => { type: unknown; props: unknown; children: unknown }
+      const vnode = render()
+      expect(vnode.type).toBe(host)
+      expect(vnode.props).toMatchObject(attrs)
+      expect(vnode.children).toBe(slots)
+    }
+    clearExtensionUiRuntime()
+  })
+
+  it('suppresses an embedded Supplementary heading while preserving its description and content slots', () => {
+    const runtime = createExtensionTestUiRuntime()
+    setExtensionUiRuntime(runtime)
+    const attrs: GcsExtensionSupplementaryInformationSectionProps = {
+      entityType: 'sample-records:version', entityId: '42', showHeader: false, showDescription: true
+    }
+    const slots = { default: vi.fn() }
+    const render = (ExtensionSupplementaryInformationSection as { setup: Function }).setup({}, { attrs, slots }) as () => {
+      type: unknown; props: Record<string, unknown>; children: unknown
+    }
+    const vnode = render()
+    expect(vnode.type).toBe(runtime.components.CommonWorkflowSupplementaryInformation)
+    expect(vnode.props).toMatchObject({ entityType: 'sample-records:version', entityId: '42', showHeader: false, showDescription: true })
+    expect(vnode.children).toBe(slots)
+    clearExtensionUiRuntime()
+  })
+
+  it('exposes only shared reactive section selection for extension detail navigation', () => {
+    const runtime = createExtensionTestUiRuntime()
+    setExtensionUiRuntime(runtime)
+    const tabs = ref([{ key: 'allocation', value: 'allocation', label: 'Répartition' },
+      { key: 'completion', value: 'completion', label: 'Achèvement' }])
+    const state = useExtensionUrlTabState({ tabs, defaultTab: 'allocation' })
+    expect(state.selectedTab.value).toBe('allocation')
+    state.selectedTab.value = 'completion'
+    expect(state.selectedTabKey.value).toBe('completion')
+    tabs.value[1]!.label = 'Allocation completion'
+    expect(state.tabs.value[1]?.label).toBe('Allocation completion')
+    expect(state).not.toHaveProperty('t')
+    expect(state).not.toHaveProperty('getLocaleMessage')
+    clearExtensionUiRuntime()
+  })
+
+  it('forwards stream workflow configuration through the host relationship editor', () => {
+    const runtime = createExtensionTestUiRuntime()
+    setExtensionUiRuntime(runtime)
+    const attrs = {
+      transferPaymentId: '21', streamId: '118', agencyId: '9',
+      entityType: 'sample-extension:case', canUpdate: true
+    }
+    const render = (ExtensionStreamWorkflowLinks as { setup: Function }).setup({}, { attrs, slots: {} }) as () => { type: unknown, props: Record<string, unknown> }
+    const vnode = render()
+    expect(vnode.type).toBe(runtime.components.CommonStreamWorkflowLinks)
+    expect(vnode.props).toMatchObject(attrs)
     clearExtensionUiRuntime()
   })
 

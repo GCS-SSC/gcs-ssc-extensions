@@ -30,7 +30,8 @@ const validEntityTabDefinitions: GcsExtensionEntityTabDefinition[] = [
     target: 'agreement',
     id: 'agreement-tab',
     label: { en: 'Agreement', fr: 'Entente' },
-    rbac: { subject: 'agreement', action: 'read' }
+    rbac: { subject: 'agreement', action: 'read' },
+    detailPage: { path: './agreement-record-detail.vue' }
   },
   {
     path: './claim-tab.vue',
@@ -47,6 +48,14 @@ const validEntityTabDefinitions: GcsExtensionEntityTabDefinition[] = [
     rbac: { subject: 'agreement', action: 'read' }
   }
 ]
+
+// @ts-expect-error -- the host currently supports record detail pages only for Agreement tabs.
+const unsupportedPaymentDetailTab: GcsExtensionEntityTabDefinition = {
+  target: 'payment', id: 'records', label: { en: 'Records', fr: 'Dossiers' },
+  path: './payment-tab.vue', rbac: { subject: 'agreement', action: 'read' },
+  detailPage: { path: './payment-detail.vue' }
+}
+void unsupportedPaymentDetailTab
 
 const validProponentTabContext: Extract<ExtensionEntityTabContext, { target: 'proponent' }> = {
   target: 'proponent', applicantRecipientId: '1', ownerType: 'applicantrecipient', ownerId: '1',

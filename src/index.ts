@@ -5,7 +5,7 @@ export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './mess
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.3.14'
+export const GCS_EXTENSION_SDK_VERSION = '0.3.17'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -474,16 +474,26 @@ type GcsExtensionEntityTabAuthorization =
     rbac: GcsExtensionRbacRequirement & { subject: 'applicant_recipient' }
     /** Require Agency read on each exposed agency because the tab calls Agency-scoped APIs. */
     agencyReadRequired?: boolean
+    detailPage?: never
   }
   | {
-    target: GcsExtensionAgreementEntityTabTarget
+    target: 'agreement'
     rbac: GcsExtensionRbacRequirement & { subject: 'agreement' }
     agencyReadRequired?: never
+    /** Optional record detail component, reached through the host's authorized Agreement tab. */
+    detailPage?: GcsExtensionComponentDefinition
+  }
+  | {
+    target: Exclude<GcsExtensionAgreementEntityTabTarget, 'agreement'>
+    rbac: GcsExtensionRbacRequirement & { subject: 'agreement' }
+    agencyReadRequired?: never
+    detailPage?: never
   }
   | {
     target: 'opportunity'
     rbac: GcsExtensionRbacRequirement & { subject: 'transfer_payment' }
     agencyReadRequired?: never
+    detailPage?: never
   }
 
 export type GcsExtensionEntityTabDefinition = GcsExtensionComponentDefinition & GcsExtensionEntityTabAuthorization & {
@@ -621,6 +631,7 @@ export type GcsExtensionHostCapability =
   | 'stream-config-modal'
   | 'stream-config-page'
   | 'entity-tabs'
+  | 'entity-detail-pages'
   | 'payment-evidence'
   | 'textarea-slots'
   | 'bilingual-field-slots'
@@ -767,9 +778,10 @@ export type GcsClientExtensionSlotDefinition = Omit<GcsExtensionSlotDefinition, 
   componentName?: string
 }
 
-export type GcsClientExtensionEntityTabDefinition = Omit<GcsExtensionEntityTabDefinition, 'path'> & {
+export type GcsClientExtensionEntityTabDefinition = Omit<GcsExtensionEntityTabDefinition, 'path' | 'detailPage'> & {
   value?: string
   componentName?: string
+  detailPage?: GcsClientExtensionComponentDefinition
 }
 
 export type GcsClientExtensionCreateActionDefinition = Omit<GcsExtensionCreateActionDefinition, 'path'> & {
