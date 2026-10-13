@@ -139,6 +139,24 @@ The wrappers preserve the host look and behavior while keeping extensions couple
 
 The host installs the concrete UI runtime with `setExtensionUiRuntime`. Extension tests can install lightweight stubs with `installExtensionTestUiRuntime` from `@gcs-ssc/extensions/testing`.
 
+`ExtensionFlowDiagram` renders a declarative `FlowDiagramDefinition` through the host's
+shared diagram package. Supply ordered `nodes` with stable IDs, `start`, `step`,
+`decision` or `end` kinds, localized plain-text titles, and routes containing
+`targetId` plus a `direct`, `conditional`, `default` or `failure` kind. Optional
+route `label`, `detail` and `targetLabel` describe each path. Node `eyebrow` and
+`lines` provide context; `selectLabel` makes a node selectable and the renderer
+emits `select-node` with its ID. Set `selectedNodeId` to highlight the active node.
+The host owns layout, connectors, control labels and SVG / PNG exports; PNG is
+rendered at four times the diagram dimensions. Pass an optional `filename` stem
+for downloads and `direction="vertical"` when the content needs a fixed vertical
+layout; the default adapts to available width. Extensions retain ownership of
+their localized diagram content and do not import rendering internals.
+
+```vue
+<ExtensionFlowDiagram :definition="diagram" :selected-node-id="selectedId"
+  filename="application-flow" @select-node="openNode" />
+```
+
 Use `useExtensionApi(extensionKey)` for extension-owned routes and `useHostApi()` for stable host API routes. Extensions that call `useHostApi()` must declare `host-api-client` in `requiredHostCapabilities`. Do not call `fetch` or build `/api/...` URLs directly in extension components.
 
 Lifecycle entity UI may use `ExtensionCompletionSection` and `ExtensionWorkflowSection` for the standard host presentation. Extensions that need a custom presentation use `useHostLifecycleApi()`, whose typed methods cover Completion state and execution, eligible standard Workflow discovery, and explicit Workflow start. The host still resolves scope, assignment, status eligibility, publication state, and concurrency; the extension supplies only the exact qualified target and, for an explicit start, the selected `workflowSetupId`.

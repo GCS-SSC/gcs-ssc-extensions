@@ -13,6 +13,7 @@ import {
   ExtensionCompletionSection,
   ExtensionCompactTable,
   ExtensionCurrencyInput,
+  ExtensionFlowDiagram,
   ExtensionPaymentCalculationBreakdown,
   ExtensionEntityHero,
   ExtensionStatusSelect,
@@ -29,6 +30,7 @@ import {
   useHostLifecycleApi
 } from '../../src/ui'
 import type {
+  FlowDiagramDefinition,
   GcsExtensionFetchResult,
   GcsGroupedTableExpandedState,
   GcsGroupedTableExpansionResult
@@ -203,6 +205,29 @@ describe('extension SDK UI runtime adapters', () => {
     ;(vnode.props['onUpdate:modelValue'] as (value: string) => void)('0.01')
     expect(update).toHaveBeenCalledWith('0.01')
     expect(runtime.composables.useI18n()).not.toHaveProperty('t')
+    clearExtensionUiRuntime()
+  })
+
+  it('passes declarative diagrams and node selection directly to the host renderer', () => {
+    const runtime = createExtensionTestUiRuntime()
+    setExtensionUiRuntime(runtime)
+    const definition: FlowDiagramDefinition = {
+      title: 'Application flow',
+      nodes: [
+        { id: 'start', kind: 'start', title: 'Start', routes: [{ targetId: 'review', kind: 'direct' }] },
+        { id: 'review', kind: 'decision', title: 'Review', selectLabel: 'Open review', routes: [{ targetId: 'end', kind: 'failure', label: 'Denied' }] },
+        { id: 'end', kind: 'end', title: 'End' }
+      ]
+    }
+    const selectNode = vi.fn()
+    const attrs = { definition, selectedNodeId: 'review', filename: 'application', direction: 'vertical', onSelectNode: selectNode }
+    const render = (ExtensionFlowDiagram as { setup: Function }).setup({}, { attrs, slots: {} }) as () => { type: unknown, props: Record<string, unknown> }
+    const vnode = render()
+    expect(vnode.type).toBe(runtime.components.CommonFlowDiagram)
+    expect(vnode.props.definition).toBe(definition)
+    expect(vnode.props).toMatchObject(attrs)
+    ;(vnode.props.onSelectNode as (id: string) => void)('review')
+    expect(selectNode).toHaveBeenCalledWith('review')
     clearExtensionUiRuntime()
   })
 

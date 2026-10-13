@@ -1,6 +1,7 @@
 import { translateGcsExtensionMessage, type GcsExtensionMessages, type GcsExtensionMessageValues } from './messages.js'
 import { computed, defineComponent, h } from 'vue'
 import type { Component, Ref } from 'vue'
+import type { FlowDiagramProps } from './diagrams.js'
 import { throwFetchResponseError } from './index'
 import type {
   GcsPaymentEvidenceExtensionContext,
@@ -15,6 +16,8 @@ import type {
   GcsExtensionRbacRequirement,
   JsonValue
 } from './index'
+
+export type { FlowDiagramDefinition, FlowDiagramEdgeKind, FlowDiagramNode, FlowDiagramProps, FlowDiagramRoute } from './diagrams.js'
 
 export type GcsGroupedTableRow<Row> = {
   id: string
@@ -89,6 +92,7 @@ export type GcsExtensionHostComponentName =
   | 'CommonCompletionSection'
   | 'CommonCompactTable'
   | 'CommonCurrencyInput'
+  | 'CommonFlowDiagram'
   | 'CommonPaymentCalculationBreakdown'
   | 'CommonResourceLayoutCard'
   | 'CommonRouteTabs'
@@ -236,6 +240,7 @@ export interface GcsExtensionCompletionSectionProps {
 }
 export const ExtensionCompletionSection = createExtensionHostComponent<GcsExtensionCompletionSectionProps>('CommonCompletionSection')
 export const ExtensionCompactTable = createExtensionHostComponent('CommonCompactTable')
+export const ExtensionFlowDiagram = createExtensionHostComponent<FlowDiagramProps>('CommonFlowDiagram')
 export const ExtensionResourceLayoutCard = createExtensionHostComponent('CommonResourceLayoutCard')
 export const ExtensionRouteTabs = createExtensionHostComponent('CommonRouteTabs')
 export const ExtensionSaveButton = createExtensionHostComponent('CommonSaveButton')

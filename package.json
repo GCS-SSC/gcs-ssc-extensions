@@ -1,6 +1,6 @@
 {
   "name": "@gcs-ssc/extensions",
-  "version": "0.3.13",
+  "version": "0.3.14",
   "description": "Public extension SDK contracts for GCS-SSC extensions.",
   "type": "module",
   "license": "UNLICENSED",
@@ -34,7 +34,8 @@
     },
     "./ui": {
       "types": "./dist/ui.d.ts",
-      "import": "./dist/ui.js"
+      "import": "./dist/ui.js",
+      "default": "./dist/ui.js"
     },
     "./testing": {
       "types": "./dist/testing.d.ts",
