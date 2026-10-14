@@ -806,10 +806,9 @@ export interface GcsExtensionAgreementForecastLineItemCreateInput {
   month: number
   amount: GcsExtensionMoneyInput
   currency: string
-  version: string
 }
 
-/** Imports one organization submission as a separate, inactive Draft Forecast. */
+/** Imports an inactive Draft Forecast; the host allocates its next Agreement/fiscal-year version. */
 export interface GcsExtensionAgreementForecastCreateInput {
   agreementId: string
   streamId: string
@@ -819,7 +818,7 @@ export interface GcsExtensionAgreementForecastCreateInput {
 }
 
 export type GcsExtensionAgreementForecastCreateResult =
-  | { status: 'created'; forecastId: string; lineItemIds: string[]; draftStatusId: string }
+  | { status: 'created'; forecastId: string; version: string; lineItemIds: string[]; draftStatusId: string }
   | { status: 'agreement_unavailable' | 'recipient_unavailable' | 'fiscal_year_unavailable' | 'draft_status_unavailable' }
 
 /** Immutable Portal application evidence for a group-queued host Intake. */
