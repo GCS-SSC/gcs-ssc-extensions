@@ -28,6 +28,12 @@ describe('extension-owned messages', () => {
     expect(() => translateGcsExtensionMessage(messages, 'en', 'greeting')).toThrow('Missing extension message parameter')
     for (const key of ['host.secret', 'toString', '__proto__']) expect(() => translateGcsExtensionMessage(messages, 'en', key as never)).toThrow('Unknown extension message')
   })
+  it('rejects a missing current-language key instead of falling back to English', () => {
+    const incomplete = { en: { onlyEnglish: 'English-only leak' }, fr: {} }
+    expect(() => translateGcsExtensionMessage(incomplete, 'fr-CA', 'onlyEnglish')).toThrow('Unknown extension message')
+    const other = defineGcsExtensionMessages({ en: { other: 'Other' }, fr: { other: 'Autre' } })
+    expect(() => translateGcsExtensionMessage(other, 'fr', 'onlyEnglish' as never)).toThrow('Unknown extension message')
+  })
   it('reacts to host locale while isolating catalogs and never invoking host t', () => {
     const locale = ref('en'), hostT = vi.fn(() => 'host secret')
     setExtensionUiRuntime(createExtensionTestUiRuntime({ composables: {
@@ -39,9 +45,15 @@ describe('extension-owned messages', () => {
     const label = computed(() => first.t('same'))
     expect(label.value).toBe('First')
     expect(second.t('same')).toBe('Second')
-    locale.value = 'fr'
+    locale.value = 'FR-ca'
     expect(label.value).toBe('Premier')
     expect(first.locale.value).toBe('fr')
+    expect(second.locale.value).toBe('fr')
+    locale.value = 'en-CA'
+    expect(label.value).toBe('First')
+    expect(first.locale.value).toBe('en')
+    locale.value = 'unsupported'
+    expect(first.locale.value).toBe('en')
     expect(first.n(42)).toBe('42')
     expect(() => first.t('host.secret' as never)).toThrow('Unknown extension message')
     expect(hostT).not.toHaveBeenCalled()

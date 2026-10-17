@@ -1,6 +1,6 @@
-import { translateGcsExtensionMessage, type GcsExtensionMessages, type GcsExtensionMessageValues } from './messages.js'
+import { normalizeGcsExtensionLocale, translateGcsExtensionMessage, type GcsExtensionMessages, type GcsExtensionMessageValues } from './messages.js'
 import { computed, defineComponent, h } from 'vue'
-import type { Component, Ref } from 'vue'
+import type { Component, Ref, VNode } from 'vue'
 import type { FlowDiagramProps } from './diagrams.js'
 import { throwFetchResponseError } from './index'
 import type {
@@ -62,8 +62,14 @@ export interface GcsExtensionI18n {
   n: (value: number, options?: Intl.NumberFormatOptions) => string
 }
 
+export interface GcsExtensionToastNotification {
+  title?: string | (() => VNode)
+  description?: string | (() => VNode)
+  [option: string]: unknown
+}
+
 export interface GcsExtensionToast {
-  add: (notification: Record<string, unknown>) => void
+  add: (notification: GcsExtensionToastNotification) => void
 }
 
 export interface GcsExtensionConfirmDialogOptions {
@@ -750,7 +756,7 @@ export const useHostApi = () => createHostApiClient()
 export const useExtensionI18n = <Catalog extends GcsExtensionMessages>(messages: Catalog) => {
   const runtime = getExtensionUiRuntime().composables.useI18n()
   return {
-    locale: computed(() => runtime.locale.value),
+    locale: computed(() => normalizeGcsExtensionLocale(runtime.locale.value)),
     n: (value: number, options?: Intl.NumberFormatOptions) => runtime.n(value, options),
     t: (key: keyof Catalog['en'] & string, values?: GcsExtensionMessageValues) =>
       translateGcsExtensionMessage(messages, runtime.locale.value, key, values)
