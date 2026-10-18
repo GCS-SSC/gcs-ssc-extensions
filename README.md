@@ -880,7 +880,7 @@ or preview a number. Existing profiles are not regenerated on updates.
 Store extension-authored messages in your package's `i18n/` modules. Define flat
 English/French catalogs with `defineGcsExtensionMessages` from the root SDK entry
 point, then call `useExtensionI18n(messages)` in UI setup. It returns `t` restricted
-to that catalog, reactive read-only `locale`, and `n`. The host runtime exposes
+to that catalog, reactive read-only `locale` normalized to `en` or `fr`, and `n`. The host runtime exposes
 only locale/number formatting and cannot resolve host message keys for extensions.
 There is no catalog-free overload, host fallback, or cross-extension registry.
 

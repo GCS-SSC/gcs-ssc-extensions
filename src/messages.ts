@@ -19,11 +19,14 @@ export const defineGcsExtensionMessages = <const En extends Record<string, strin
   return Object.freeze({ en: Object.freeze({ ...messages.en }), fr: Object.freeze({ ...messages.fr }) })
 }
 
+export const normalizeGcsExtensionLocale = (locale: string): 'en' | 'fr' =>
+  locale.toLowerCase().split('-')[0] === 'fr' ? 'fr' : 'en'
+
 /** Resolves only an own catalog key; never falls back to host messages or linked keys. */
 export const translateGcsExtensionMessage = <Catalog extends GcsExtensionMessages>(
   messages: Catalog, locale: string, key: keyof Catalog['en'] & string, values: GcsExtensionMessageValues = {}
 ): string => {
-  const selected = locale.toLowerCase().split('-')[0] === 'fr' ? messages.fr : messages.en
+  const selected = messages[normalizeGcsExtensionLocale(locale)]
   if (!Object.prototype.hasOwnProperty.call(selected, key)) throw new Error(`Unknown extension message: ${key}`)
   return selected[key]!.replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_match, name: string) => {
     if (!Object.prototype.hasOwnProperty.call(values, name)) throw new Error(`Missing extension message parameter: ${name}`)
