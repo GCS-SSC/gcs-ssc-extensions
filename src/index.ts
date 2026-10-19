@@ -5,7 +5,7 @@ export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './mess
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.3.18'
+export const GCS_EXTENSION_SDK_VERSION = '0.3.19'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -628,6 +628,7 @@ export interface GcsRegisteredExtensionLifecycleEntityDefinition extends Omit<
 export type GcsExtensionHostCapability =
   | 'agency-config'
   | 'agency-workspace'
+  | 'agency-workspace-navigation'
   | 'stream-config-modal'
   | 'stream-config-page'
   | 'entity-tabs'
@@ -664,10 +665,18 @@ export type GcsExtensionHostCapability =
 /** Minimum host role for changing extension enablement or JSON configuration. */
 export type GcsExtensionConfigurationAccess = 'contributor' | 'manager'
 
+/** Sidebar placement declared by an extension; lower order values appear first. */
+export interface GcsExtensionWorkspaceNavigation {
+  category: 'management' | 'administration'
+  /** Safe integer; equal orders are resolved by the stable destination ID. */
+  order: number
+}
+
 export interface GcsExtensionAdminDefinition {
   agency?: GcsExtensionComponentDefinition
   /** Dedicated Agency workspace; its component receives the selected tab as `section`. */
   agencyWorkspace?: {
+    navigation: GcsExtensionWorkspaceNavigation
     label: GcsExtensionBilingualLabel
     icon?: string
     tabs: Array<{ id: string; label: GcsExtensionBilingualLabel; icon?: string }>

@@ -282,6 +282,38 @@ The Vue form implements `GcsFileStorageMetadataComponentProps` and emits `update
 
 All adapter, validator, and component paths are resolved inside the extension package. Adapter and validator modules are registered only in the server registry. Only safe metadata presentation details and the generated component identity may enter the browser registry.
 
+## Agency workspace navigation
+
+SDK 0.3.19 requires every `admin.agencyWorkspace` to declare its sidebar placement.
+The extension requires both `agency-workspace` and `agency-workspace-navigation`
+host capabilities, alongside its Agency component capabilities.
+
+```ts
+admin: {
+	agency: { path: './components/AgencyConfig.vue' },
+	agencyWorkspace: {
+		navigation: { category: 'management', order: 40 },
+		label: { en: 'Workspace', fr: 'Espace de travail' },
+		tabs: [{ id: 'settings', label: { en: 'Settings', fr: 'Paramètres' } }]
+	}
+}
+```
+
+`category` is `management` or `administration`. `order` is a signed safe integer;
+lower values appear first among all destinations in that category. Equal orders
+use the stable destination ID, independent of translated labels or discovery order.
+Extension destination IDs are `extension:<extension-key>`. There is no default
+placement or host list of extension identities.
+
+Management's native orders are Agencies 10, Opportunities 20, Programs 30,
+Roles 50, Guided Help 60, and Journal Vouchers 70. Administration's native orders
+are Assignment 10, Users 20, Groups 30, Audit 40, and GWCOA 50.
+Extensions choose their order relative to those destinations.
+
+The workspace appears only when enabled for an active Agency the user can read.
+Navigation placement grants no permissions. The host validates declarations during
+discovery and preserves them through generated manifests and the workspace API.
+
 ## Entity Tabs And RBAC
 
 ## Stream Configuration Components
