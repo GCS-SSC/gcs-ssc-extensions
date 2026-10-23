@@ -1031,33 +1031,68 @@ text and modal labels from the extension's catalog. Use
 `ExtensionSaveButton` for the validated save action. Cancelling the draft
 must leave the collection unchanged.
 
-### L1 durable scheduling
+### Background queue scheduling
 
-Declare `l1-queue` and register bounded recurring handlers from the extension's
-Nitro plugin with `registerGcsExtensionL1QueueHandler` from
+Declare `background-queue` and register bounded recurring handlers from the extension's
+Nitro plugin with `registerGcsExtensionQueueHandler` from
 `@gcs-ssc/extensions/server`:
 
 ```ts
-registerGcsExtensionL1QueueHandler({
-  extensionKey: 'example',
-  id: 'external-delivery',
-  intervalMs: 5000,
-  run: async ({ db, runForAgency, createWriteAuthorization }) => {
-    // Drain a bounded batch from the extension's transactional operation queue.
-  }
-}, nitroApp)
+import { defineGcsExtensionNitroPlugin, registerGcsExtensionQueueHandler } from '@gcs-ssc/extensions/server'
+
+export default defineGcsExtensionNitroPlugin(nitroApp => {
+	registerGcsExtensionQueueHandler({
+		extensionKey: 'example',
+		id: 'external-delivery',
+		queueLevel: 1,
+		run: async ({ db, runForAgency, createWriteAuthorization }) => {
+			// Drain a bounded batch from the extension's transactional operation queue.
+		}
+	}, nitroApp)
+})
 ```
 
-The host persists one schedule per namespaced handler, claims it with a renewable
-lease, and checks due work every five seconds after migrations and audit startup.
-Intervals are whole milliseconds from 1000 through 2147483647. The next recurring
-run is scheduled after completion; missed runs do not accumulate or overlap.
-Independent handlers continue while another is active. Unexpected failures retry
-indefinitely with exponential delay capped at thirty minutes (or the handler's
-longer interval). Domain handlers retain permanent-failure policy and their own
-operation retry state.
+The host installs a registration service on the plugin's app before activation.
+Registration calls that service synchronously and retains the callback in an app-local
+map. It does not add a registration hook. The host validates the declared
+`background-queue` capability, namespaced identity and supported level. Invalid or
+duplicate registrations fail immediately. Each application process has its own
+map; scheduler polls and administration reads use that map without re-registering
+handlers. Registration through an app without an initialized host service fails.
 
-L1 centralizes execution scheduling. Existing domain queues retain payloads,
+Handlers registered while the plugin starts become visible together only after the
+whole plugin succeeds. Failure discards its pending queue registrations so startup
+can retry. Async callbacks started by a failed activation cannot register abandoned
+handlers or affect a later retry. Activation binds registrations to that extension's
+identity. Calls made after successful activation update the map immediately,
+including callbacks started during that activation.
+
+The host owns the supported queue-level catalog, cadence and retry policy:
+
+| Queue level | Shared UTC cadence | Completed-failure retry delay |
+| --- | --- | --- |
+| 0 | Every ten seconds | Exponential, from ten seconds up to five minutes |
+| 1 | Every five minutes | Exponential, from five minutes up to one hour |
+| 2 | Every thirty minutes | Next shared cycle |
+| 3 | Every hour | Next shared cycle |
+
+Handlers select a `queueLevel` and cannot supply an interval. The SDK accepts nonnegative safe-integer levels so
+the host can add levels without an SDK release; the host rejects unsupported levels.
+Legacy `intervalMs` registrations fail explicitly.
+
+Extension handlers execute across the application cluster. The host persists one shared schedule per level and execution evidence per
+namespaced handler. It claims work with renewable leases after migrations and
+audit startup. All handlers on a level share its cycle. Successful handlers become
+eligible on the next UTC boundary. Consecutive completed failures on levels 0 and 1
+double the retry delay up to that level's cap, measured from failure completion;
+the earliest retry is the first shared UTC boundary at or after that deadline.
+Successful completion resets the delay. Levels 2 and 3 retry on their next shared
+cycle. Retry evidence survives application restarts and there is no retry limit.
+Missed cycles do not accumulate; a handler still running skips elapsed cycles.
+Independent handlers continue while another is active. Domain handlers retain
+permanent-failure policy and their own operation retry state.
+
+Background queues centralize execution scheduling. Existing domain queues retain payloads,
 transactional enqueueing, ordering and business evidence. Registering a handler
 neither grants authorization nor replaces fresh Agency enablement checks. Use the
 provided `runForAgency` for actorless Agency audit attribution and
@@ -1066,8 +1101,9 @@ when executing; never persist them in scheduler state. Delivery is at least once
 external operations must be idempotent or supply a stable idempotency key.
 
 Handlers activate only after an extension has an enabled Agency and its migrations
-succeed. The host skips disabled extensions, while each handler rechecks the owning
-Agency before operating. Shutdown stops new dispatch and waits for active handlers
+succeed. Disabling an extension retains its registrations. The host refreshes
+eligibility from the database before dispatch and skips disabled extensions, while
+each handler rechecks the owning Agency before operating. Shutdown stops new dispatch and waits for active handlers
 before releasing the database lease. All external calls must have bounded timeouts.
 
 ### Payment evidence

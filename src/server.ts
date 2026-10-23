@@ -880,40 +880,84 @@ export interface GcsExtensionWriteAuthorization {
   ) => Promise<GcsExtensionAgreementForecastCreateResult>
 }
 
-/** Host services offered to bounded, enabled L1 handlers. */
-export interface GcsL1QueueContext {
+/** Host services offered to bounded, enabled background handlers. */
+export interface GcsQueueContext {
   db: unknown
   createWriteAuthorization: (extensionKey: string, agencyId: string) => GcsExtensionWriteAuthorization
   runForAgency: <T>(agencyId: string, operation: () => Promise<T>) => Promise<T>
 }
 
-export interface GcsL1QueueHandler {
+export interface GcsQueueHandler {
   /** Stable handler identity; extensions use a package-local ID. */
   id: string
-  /** Delay after completion; missed recurring runs never accumulate. */
-  intervalMs: number
+  /** Nonnegative host catalog level; the host owns its fixed UTC schedule. */
+  queueLevel: number
   extensionKey?: string
-  run: (context: GcsL1QueueContext) => Promise<void>
+  run: (context: GcsQueueContext) => Promise<void>
 }
 
-export interface GcsL1QueueRegistration {
-  register: (handler: GcsL1QueueHandler) => void
+/** App-local host bridge for immediate, validated handler registration. */
+export interface GcsQueueRegistrar {
+  register: (handler: GcsQueueHandler) => void
 }
 
-/** Registers bounded recurring work with the host's durable L1 queue from an enabled plugin. */
-export const registerGcsExtensionL1QueueHandler = (
-  handler: GcsL1QueueHandler & { extensionKey: string },
+const queueRegistrarKey = Symbol.for('gcs-ssc:queue-registrar')
+const queueRegistrarSchema = z.object({
+  register: z.custom<GcsQueueRegistrar['register']>(value => typeof value === 'function', {
+    error: 'Queue registrars require a callable register operation.'
+  })
+})
+
+const isQueueRegistrar = (value: unknown): value is GcsQueueRegistrar => queueRegistrarSchema.safeParse(value).success
+
+/** Installs the host bridge once per app; module reloads retain the existing bridge. */
+export const installGcsQueueRegistrar = (app: object, registrar: GcsQueueRegistrar): void => {
+  queueRegistrarSchema.parse(registrar)
+  const installed = Object.getOwnPropertyDescriptor(app, queueRegistrarKey)
+  if (installed) {
+    if (installed.value !== registrar) throw new Error('A queue registrar is already installed for this app.')
+    return
+  }
+  Object.defineProperty(app, queueRegistrarKey, { value: registrar })
+}
+
+const getQueueRegistrar = (app: object): GcsQueueRegistrar => {
+  const registrar: unknown = Object.getOwnPropertyDescriptor(app, queueRegistrarKey)?.value
+  if (!isQueueRegistrar(registrar)) {
+    throw new Error('The host queue registrar is not initialized for this app.')
+  }
+  return registrar
+}
+
+const queueIdentitySchema = z.string({ error: 'Queue extension and handler identities must be lowercase kebab-case.' })
+  .regex(/^[a-z][a-z0-9-]*$/, { error: 'Queue extension and handler identities must be lowercase kebab-case.' })
+
+const extensionQueueHandlerSchema = z.strictObject({
+  extensionKey: queueIdentitySchema,
+  id: queueIdentitySchema,
+  queueLevel: z.number({ error: 'Queue levels must be nonnegative safe integers.' })
+    .refine(level => Number.isSafeInteger(level) && level >= 0, { error: 'Queue levels must be nonnegative safe integers.' }),
+  run: z.custom<GcsQueueHandler['run']>(value => typeof value === 'function', {
+    error: 'Queue handlers require a callable run operation.'
+  })
+}, {
+  error: issue => issue.code === 'unrecognized_keys' && issue.keys.includes('intervalMs')
+    ? 'Queue handlers use queueLevel; intervalMs is not supported.'
+    : undefined
+})
+
+/**
+ * Registers bounded recurring work with a host-owned queue level from an enabled plugin.
+ *
+ * @param handler Extension-owned handler and selected host queue level.
+ * @param nitroApp Enabled extension plugin's app with an installed host queue registrar.
+ */
+export const registerGcsExtensionQueueHandler = (
+  handler: GcsQueueHandler & { extensionKey: string },
   nitroApp: NitroHookRegistrar
 ): void => {
-  if (!/^[a-z][a-z0-9-]*$/.test(handler.extensionKey) || !/^[a-z][a-z0-9-]*$/.test(handler.id)) {
-    throw new Error('L1 queue extension and handler identities must be lowercase kebab-case.')
-  }
-  if (!Number.isSafeInteger(handler.intervalMs) || handler.intervalMs < 1000 || handler.intervalMs > 2_147_483_647) {
-    throw new Error('L1 queue intervals must be whole milliseconds of at least 1000.')
-  }
-  nitroApp.hooks.hook('gcs-extension:l1-queue-register', (registration: GcsL1QueueRegistration) => {
-    registration.register({ ...handler, id: `${handler.extensionKey}:${handler.id}` })
-  })
+  const validated = extensionQueueHandlerSchema.parse(handler)
+  getQueueRegistrar(nitroApp).register({ ...validated, id: `${validated.extensionKey}:${validated.id}` })
 }
 
 export interface GcsExtensionAgreementOption {
