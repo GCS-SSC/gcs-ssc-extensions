@@ -75,23 +75,26 @@ const createAgreementLookupDb = (agreement: unknown) => {
 }
 
 const createTestRouteEvent = (
-  body: Record<string, unknown>,
+  body: Record<string, unknown> | string,
   headerValue: string
 ): GcsExtensionRouteEvent => {
   const request = new IncomingMessage(new Socket())
   request.method = 'POST'
+  const raw = typeof body === 'string' ? body : JSON.stringify(body)
   request.headers = {
+    'content-length': String(Buffer.byteLength(raw)),
     'content-type': 'application/json',
     'x-extension-test': headerValue
   }
 
+  request.push(raw)
+  request.push(null)
   return Object.assign(
     createEvent(request, new ServerResponse(request)),
     {
       context: {
         $db: {}
-      },
-      _requestBody: JSON.stringify(body)
+      }
     }
   )
 }
@@ -318,10 +321,21 @@ describe('extension SDK server helpers', () => {
     const routeContext = createGcsExtensionRouteContext(contextEvent)
 
     await expect(readGcsExtensionRequestBody(rawEvent)).resolves.toEqual({ source: 'raw-event' })
-    expect(rawEvent.context.auditRequestBody).toEqual({ source: 'raw-event' })
+    expect(rawEvent.context.auditRequestBody).toBe('{"source":"raw-event"}')
     expect(getGcsExtensionRequestHeader(rawEvent, 'x-extension-test')).toBe('raw-header')
     await expect(readGcsExtensionRequestBody(routeContext)).resolves.toEqual({ source: 'route-context' })
     expect(getGcsExtensionRequestHeader(routeContext, 'x-extension-test')).toBe('context-header')
+  })
+
+  it('preserves exact JSON tokens across repeated readers and sticky secret restrictions', async () => {
+    const raw = '{"amount":9007199254740993.25,"password":"hidden"}'
+    const event = createTestRouteEvent(raw, 'header')
+    const first = await readGcsExtensionRequestBody(event)
+    expect(await readGcsExtensionRequestBody(event)).toEqual(first)
+    expect(event.context.auditRequestBody).toBe(raw)
+    event.context.auditRequestInputsRestricted = true
+    expect(await readGcsExtensionRequestBody(event)).toEqual(first)
+    expect(event.context.auditRequestBody).toEqual({ state: 'restricted' })
   })
 
   it('publishes Agency configuration separately from stream configuration', () => {

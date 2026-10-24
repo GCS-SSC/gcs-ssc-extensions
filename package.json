@@ -54,10 +54,12 @@
   },
   "devDependencies": {
     "@types/node": "^25.3.0",
+    "@vitest/coverage-v8": "^4.1.12",
     "kysely": "^0.28.11",
     "h3": "^1.15.5",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18",
+    "vite": "^8.3.5",
+    "vitest": "^4.1.12",
     "vue": "^3.5.28",
     "zod": "^4.3.6"
   }

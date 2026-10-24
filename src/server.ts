@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { getHeader, isEvent, readBody, type H3Event } from 'h3'
+import { getHeader, isEvent, readBody, readRawBody, type H3Event } from 'h3'
 import { sql, type Generated, type Kysely, type Migration, type Transaction } from 'kysely'
 import type {
   ExtensionEntityTabContext,
@@ -1143,10 +1143,8 @@ export const readGcsExtensionRequestBody = async <T = unknown>(
 ): Promise<T> => {
   const event = requireHostH3Event(eventOrContext)
   const body = await readBody<T>(event)
-  const cached: unknown = Reflect.get(event.node.req, Symbol.for('h3RawBody'))
-  const raw = cached === undefined ? undefined : await cached
-  event.context.auditRequestBody = String(event.node.req.headers['content-type'] ?? '').includes('json')
-    && (typeof raw === 'string' || Buffer.isBuffer(raw)) ? raw.toString() : body
+  const raw = getHeader(event, 'content-type')?.includes('json') ? await readRawBody(event) : undefined
+  event.context.auditRequestBody = event.context.auditRequestInputsRestricted === true ? { state: 'restricted' } : raw ?? body
   return body
 }
 
