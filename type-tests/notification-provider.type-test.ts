@@ -1,4 +1,4 @@
-import { defineGcsExtension, type GcsNotificationMapping, type GcsNotificationNotifier, type GcsNotificationFieldMapping } from '../src/index'
+import { defineGcsExtension, type GcsNotificationMapping, type GcsNotificationNotifier, type GcsNotificationFieldMapping, type GcsNotificationAuthoredFieldMapping, type GcsNotificationAuthoredMapping } from '../src/index'
 import {
   defineGcsNotificationProviderAdapter,
   type GcsExtensionConfigurationGuardContext,
@@ -82,3 +82,30 @@ void zonedMappings
 void ungroupedField
 void missingTimeZone
 void unsupportedFieldType
+
+// Earlier stored recipient-less and temporal bindings remain readable without data loss.
+const earlierMapping: GcsNotificationMapping = {
+  templateId: 'earlier-template', personalisation: { date: { fieldId: 'event_date', timeZone: 'America/Toronto' }, name: 'agency_name' }
+}
+const authoredMapping: GcsNotificationAuthoredMapping = {
+  templateId: 'new-template', recipientEmail: 'host_email', personalisation: {
+    text: 'reference', name: { fieldId: 'agency_name', locale: 'fr' },
+    dateEn: { fieldId: 'event_date', timeZone: 'America/Toronto', locale: 'en' },
+    dateFr: { fieldId: 'event_date', timeZone: 'America/Vancouver', locale: 'fr' }
+  }
+}
+// @ts-expect-error -- new temporal bindings require explicit locale.
+const localeMissing: GcsNotificationAuthoredFieldMapping = { fieldId: 'event_date', timeZone: 'America/Toronto' }
+// @ts-expect-error -- recipient is explicitly mapped on new saves.
+const recipientMissing: GcsNotificationAuthoredMapping = { templateId: 'x', personalisation: {} }
+// @ts-expect-error -- localization is limited to the host's supported languages.
+const unsupportedLocale: GcsNotificationAuthoredFieldMapping = { fieldId: 'agency_name', locale: 'es' }
+const localizedFieldType: GcsNotificationNotifier['fields'][number]['type'] = 'localized-text'
+const emailFieldType: GcsNotificationNotifier['fields'][number]['type'] = 'email'
+void earlierMapping
+void authoredMapping
+void localeMissing
+void recipientMissing
+void unsupportedLocale
+void localizedFieldType
+void emailFieldType

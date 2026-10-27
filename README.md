@@ -1173,13 +1173,23 @@ optional. Stream configuration contains no credentials. Stream configuration gua
 receive the host-bound `notificationNotifiers` catalog for notification providers.
 Its `GcsNotificationNotifier` entries define notifier IDs, bilingual names, and field
 IDs with bilingual names. Every field declares a host-owned group with an ID and
-bilingual name, plus `type: 'text' | 'date' | 'time'`. Clients display those groups
-without hardcoding host notifier identities. `GcsNotificationFieldMapping` is a field
-ID string for text, or `{ fieldId, timeZone }` for a date/time placeholder. Each
-placeholder retains its explicitly selected timezone. Two placeholders may reference
-the same temporal field with different timezones. The host and extension guard
-validate binding kind and timezone against the authoritative catalog. Guards validate submitted bindings against this catalog,
-then validate remote template placeholders with the delivery service. A browser's
+bilingual name, plus `type: 'text' | 'email' | 'localized-text' | 'date' | 'time'`.
+Clients display those groups without hardcoding host notifier identities.
+`GcsNotificationAuthoredFieldMapping` is a field
+ID string for ordinary text or email, `{ fieldId, locale }` for localized text, or
+`{ fieldId, timeZone, locale }` for a date/time placeholder. Each placeholder retains
+its explicitly selected `en` or `fr` locale and, for temporal fields, timezone.
+Placeholders may reference the same field with different locales and timezones.
+The read contract `GcsNotificationFieldMapping` also accepts earlier
+`{ fieldId, timeZone }` values so editors retain them for explicit repair.
+`GcsNotificationMapping.recipientEmail` is a host email field ID, not a literal
+address. It remains optional only for reading earlier saved mappings.
+`GcsNotificationAuthoredMapping` requires that recipient field and authored
+personalisation bindings. New saves and fresh sends reject missing recipients or
+missing locales on language-sensitive fields. There is no implicit recipient,
+language, or timezone default. The host and extension guard validate binding kinds,
+recipient eligibility, locale, and timezone against the authoritative catalog.
+Guards also validate remote template placeholders with the delivery service. A browser's
 catalog data does not establish server-side mapping validity. Before sending, the host calls
 `prepareDelivery` and durably retains its non-secret JSON result as
 `deliveryContext`. This identifies the remote service without storing credentials.

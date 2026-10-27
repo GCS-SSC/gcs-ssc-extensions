@@ -5,7 +5,7 @@ export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './mess
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.3.24'
+export const GCS_EXTENSION_SDK_VERSION = '0.3.25'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -479,17 +479,35 @@ export interface GcsNotificationNotifier {
     id: string
     name: GcsExtensionBilingualLabel
     group: { id: string; name: GcsExtensionBilingualLabel }
-    type: 'text' | 'date' | 'time'
+    type: 'text' | 'email' | 'localized-text' | 'date' | 'time'
   }>
 }
 
-/** Text fields use their ID; date/time fields retain a timezone for each placeholder. */
-export type GcsNotificationFieldMapping = string | { fieldId: string; timeZone: string }
+export type GcsNotificationLocale = 'en' | 'fr'
+
+/** New language-sensitive bindings retain an explicit locale for each placeholder. */
+export type GcsNotificationAuthoredFieldMapping =
+  | string
+  | { fieldId: string; locale: GcsNotificationLocale }
+  | { fieldId: string; timeZone: string; locale: GcsNotificationLocale }
+
+/** Read contract also retains earlier temporal bindings so editors can repair them. */
+export type GcsNotificationFieldMapping =
+  | GcsNotificationAuthoredFieldMapping
+  | { fieldId: string; timeZone: string }
 
 /** A provider template's placeholder keys mapped to host-defined notifier fields. */
 export interface GcsNotificationMapping {
   templateId: string
+  /** Host email field ID. Missing earlier values remain editable but cannot send. */
+  recipientEmail?: string
   personalisation: Record<string, GcsNotificationFieldMapping>
+}
+
+/** New saves require an explicit recipient binding and catalog-validated field bindings. */
+export interface GcsNotificationAuthoredMapping extends Omit<GcsNotificationMapping, 'recipientEmail' | 'personalisation'> {
+  recipientEmail: string
+  personalisation: Record<string, GcsNotificationAuthoredFieldMapping>
 }
 
 /** Email template metadata; provider-specific content remains in the delivery service. */
