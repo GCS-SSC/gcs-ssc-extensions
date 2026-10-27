@@ -15,10 +15,10 @@ import type {
   GcsFileStoragePurpose,
   GcsFileStorageTarget,
   JsonValue
-} from './index'
+} from './index.js'
 
-export type { ExtensionEntityOwnerType, ExtensionEntityTabContext, ExtensionScope } from './index'
-export type { GcsFileStoragePurpose, GcsFileStorageTarget } from './index'
+export type { ExtensionEntityOwnerType, ExtensionEntityTabContext, ExtensionScope } from './index.js'
+export type { GcsFileStoragePurpose, GcsFileStorageTarget } from './index.js'
 
 export type GcsExtensionMigration = Migration
 

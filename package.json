@@ -1,6 +1,6 @@
 {
   "name": "@gcs-ssc/extensions",
-  "version": "0.3.20",
+  "version": "0.3.21",
   "description": "Public extension SDK contracts for GCS-SSC extensions.",
   "type": "module",
   "license": "UNLICENSED",
@@ -11,6 +11,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "prepare": "bun run build",
+    "test:package": "bun run build && node scripts/verify-package.mjs",
     "test:unit": "vitest run --config vitest.config.ts",
     "test:coverage": "vitest run --coverage --config vitest.config.ts",
     "typecheck": "tsc --noEmit"

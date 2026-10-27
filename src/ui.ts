@@ -2,7 +2,7 @@ import { normalizeGcsExtensionLocale, translateGcsExtensionMessage, type GcsExte
 import { computed, defineComponent, h } from 'vue'
 import type { Component, Ref, VNode } from 'vue'
 import type { FlowDiagramProps } from './diagrams.js'
-import { throwFetchResponseError } from './index'
+import { throwFetchResponseError } from './index.js'
 import type {
   GcsPaymentEvidenceExtensionContext,
   GcsExtensionBilingualLabel,
@@ -15,7 +15,7 @@ import type {
   GcsFileStorageTarget,
   GcsExtensionRbacRequirement,
   JsonValue
-} from './index'
+} from './index.js'
 
 export type { FlowDiagramDefinition, FlowDiagramEdgeKind, FlowDiagramNode, FlowDiagramProps, FlowDiagramRoute } from './diagrams.js'
 

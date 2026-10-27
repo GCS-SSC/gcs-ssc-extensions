@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import type { GcsExtensionAuthContext } from './server'
+import type { GcsExtensionAuthContext } from './server.js'
 
 export interface GcsRef<T> {
   value: T

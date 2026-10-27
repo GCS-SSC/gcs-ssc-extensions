@@ -1181,3 +1181,12 @@ acceptance, including eventual-consistency uncertainty. An empty search result a
 need not prove absence. Changed service identity, expired lookup history, missing
 recovery support, and uncertain lookup results must remain inconclusive. Never place
 API keys or other secrets in `deliveryContext`.
+
+## Package verification (SDK 0.3.21)
+
+`bun run test:package` builds and packs the SDK, installs that tarball into an
+external temporary consumer, and imports every public runtime export with Node ESM.
+It also checks that every declared type entry exists in the packed package. This
+check uses no workspace aliases or Bun module resolution. Run it before publishing
+an SDK release. SDK 0.3.21 fixes explicit JavaScript paths in runtime and declaration
+imports for native Node ESM consumers.

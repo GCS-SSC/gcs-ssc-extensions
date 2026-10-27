@@ -2,11 +2,11 @@ import { computed, defineComponent, h, ref, toValue } from 'vue'
 import type { Component, Ref } from 'vue'
 import {
   setExtensionUiRuntime
-} from './ui'
+} from './ui.js'
 import type {
   GcsExtensionHostComponentName,
   GcsExtensionUiRuntime
-} from './ui'
+} from './ui.js'
 
 export interface ExtensionTestRouteResponse {
   statusCode: number
