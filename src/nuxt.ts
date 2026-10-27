@@ -67,6 +67,7 @@ declare global {
   const CommonCurrencyInput: Component
   const CommonSaveButton: Component
   const CommonEntityEditorWorkspace: Component
+  const CommonResourceLayoutPage: Component
   const CommonResourceLayoutCard: Component
   const CommonRouteTabs: Component
   const CommonSection: Component

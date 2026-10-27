@@ -26,7 +26,25 @@ try {
     specifiers.push(key === '.' ? manifest.name : `${manifest.name}${key.slice(1)}`)
   }
   const smokePath = join(consumerRoot, 'smoke.mjs')
-  await writeFile(smokePath, `for (const specifier of ${JSON.stringify(specifiers)}) await import(specifier)\n`)
+  await writeFile(smokePath, `
+import { createSSRApp, h } from 'vue'
+import { renderToString } from 'vue/server-renderer'
+import { ExtensionResourceLayoutPage, clearExtensionUiRuntime } from '@gcs-ssc/extensions/ui'
+import { installExtensionTestUiRuntime } from '@gcs-ssc/extensions/testing'
+for (const specifier of ${JSON.stringify(specifiers)}) await import(specifier)
+installExtensionTestUiRuntime()
+try {
+  const html = await renderToString(createSSRApp({ render: () => h(ExtensionResourceLayoutPage, {
+    data: [{ id: 'template-1', name: 'Approval template' }],
+    columns: [{ accessorKey: 'name', header: 'Template' }, { id: 'actions', header: 'Actions' }],
+    pagination: { pageIndex: 0, pageSize: 10 }, showButton: false
+  }, { 'actions-cell': ({ row }) => h('button', { 'data-template': row.original.id }, 'Edit mapping') }) }))
+  if (!html.includes('Approval template') || !html.includes('data-template="template-1"') || !html.includes('Edit mapping')) {
+    throw new Error('Packed page-table wrapper lost its rows or named action slot')
+  }
+} finally { clearExtensionUiRuntime() }
+`)
+
   run(process.execPath, [smokePath], consumerRoot)
   console.info(`Packed SDK ${manifest.version}: Node ESM imported all ${specifiers.length} public exports`)
 } catch (error) {

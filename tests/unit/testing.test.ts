@@ -39,18 +39,18 @@ describe('extension SDK testing runtime', () => {
     expect(h(runtime.components.UTable)).toBeTruthy()
   })
 
-  it('renders compact table headers, data, named row slots and empty content', () => {
+  it.each(['CommonCompactTable', 'CommonResourceLayoutPage'] as const)('renders %s headers, data, named row slots and empty content', componentName => {
     const runtime = createExtensionTestUiRuntime()
     const actions = vi.fn(() => h('button', 'Edit'))
     const columns = [{ accessorKey: 'name', header: 'Name' }, { id: 'actions', header: 'Actions' }]
     const row = { name: 'Sample' }
-    const table = renderComponent(runtime.components.CommonCompactTable, { data: [row], columns }, { 'actions-cell': actions })
+    const table = renderComponent(runtime.components[componentName], { data: [row], columns }, { 'actions-cell': actions })
     expect(table.vnode.type).toBe('table')
     expect(actions).toHaveBeenCalledWith({ row: { original: row, index: 0 } })
     expect(table.vnode.children[1].children[0].children[0].children).toBe('Sample')
-    const empty = renderComponent(runtime.components.CommonCompactTable, { data: [], columns, emptyText: 'No items' })
+    const empty = renderComponent(runtime.components[componentName], { data: [], columns, emptyText: 'No items' })
     expect(empty.vnode.children[1].children[0].children[0].children).toBe('No items')
-    const slot = renderComponent(runtime.components.CommonCompactTable, {}, { empty: () => 'Custom empty' })
+    const slot = renderComponent(runtime.components[componentName], {}, { empty: () => 'Custom empty' })
     expect(slot.vnode.children[1].children[0].children[0].children).toBe('Custom empty')
   })
 

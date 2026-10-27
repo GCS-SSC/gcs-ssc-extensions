@@ -1199,3 +1199,11 @@ It also checks that every declared type entry exists in the packed package. This
 check uses no workspace aliases or Bun module resolution. Run it before publishing
 an SDK release. SDK 0.3.21 fixes explicit JavaScript paths in runtime and declaration
 imports for native Node ESM consumers.
+
+`ExtensionResourceLayoutPage` delegates to the host's existing
+`CommonResourceLayoutPage`, the same main-page table template used by Agreements.
+It passes through table data, columns, search and pagination models, toolbar options,
+events, and scoped row slots. `ExtensionResourceLayoutCard` remains available for
+embedded card tables. The standalone testing runtime supplies row and named-slot
+rendering for the page wrapper; `test:package` verifies those bindings through the
+packed public UI and testing entrypoints.
