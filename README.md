@@ -1172,7 +1172,13 @@ abort signal. `validateAgencyConfig` normalizes Agency connection configuration;
 optional. Stream configuration contains no credentials. Stream configuration guards
 receive the host-bound `notificationNotifiers` catalog for notification providers.
 Its `GcsNotificationNotifier` entries define notifier IDs, bilingual names, and field
-IDs with bilingual names. Guards validate submitted bindings against this catalog,
+IDs with bilingual names. Every field declares a host-owned group with an ID and
+bilingual name, plus `type: 'text' | 'date' | 'time'`. Clients display those groups
+without hardcoding host notifier identities. `GcsNotificationFieldMapping` is a field
+ID string for text, or `{ fieldId, timeZone }` for a date/time placeholder. Each
+placeholder retains its explicitly selected timezone. Two placeholders may reference
+the same temporal field with different timezones. The host and extension guard
+validate binding kind and timezone against the authoritative catalog. Guards validate submitted bindings against this catalog,
 then validate remote template placeholders with the delivery service. A browser's
 catalog data does not establish server-side mapping validity. Before sending, the host calls
 `prepareDelivery` and durably retains its non-secret JSON result as

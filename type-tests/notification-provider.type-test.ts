@@ -1,4 +1,4 @@
-import { defineGcsExtension, type GcsNotificationMapping } from '../src/index'
+import { defineGcsExtension, type GcsNotificationMapping, type GcsNotificationNotifier, type GcsNotificationFieldMapping } from '../src/index'
 import {
   defineGcsNotificationProviderAdapter,
   type GcsExtensionConfigurationGuardContext,
@@ -56,3 +56,29 @@ if (guard.notificationNotifiers) {
   // @ts-expect-error -- extensions cannot mutate the host catalog array.
   guard.notificationNotifiers.push({ id: 'invented', name: { en: 'x', fr: 'x' }, fields: [] })
 }
+
+const notifier: GcsNotificationNotifier = {
+  id: 'host.event', name: { en: 'Event', fr: 'Événement' },
+  fields: [{
+    id: 'occurred_date', name: { en: 'Date', fr: 'Date' },
+    group: { id: 'system', name: { en: 'System', fr: 'Système' } }, type: 'date'
+  }]
+}
+const zonedMappings: GcsNotificationMapping = {
+  templateId: 'template-1', personalisation: {
+    name: 'recipient_name',
+    localDate: { fieldId: 'occurred_date', timeZone: 'America/Toronto' },
+    remoteDate: { fieldId: 'occurred_date', timeZone: 'America/Vancouver' }
+  }
+}
+// @ts-expect-error -- every host field declares its group and value type.
+const ungroupedField: GcsNotificationNotifier['fields'][number] = { id: 'x', name: { en: 'x', fr: 'x' } }
+// @ts-expect-error -- date/time bindings retain the explicitly chosen timezone.
+const missingTimeZone: GcsNotificationFieldMapping = { fieldId: 'occurred_date' }
+// @ts-expect-error -- notification temporal values support date or time, not a provider-specific type.
+const unsupportedFieldType: GcsNotificationNotifier['fields'][number]['type'] = 'timestamp'
+void notifier
+void zonedMappings
+void ungroupedField
+void missingTimeZone
+void unsupportedFieldType

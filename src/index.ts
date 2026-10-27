@@ -5,7 +5,7 @@ export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './mess
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.3.23'
+export const GCS_EXTENSION_SDK_VERSION = '0.3.24'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -475,13 +475,21 @@ export interface GcsRegisteredNotificationProviderDefinition {
 export interface GcsNotificationNotifier {
   id: string
   name: GcsExtensionBilingualLabel
-  fields: Array<{ id: string; name: GcsExtensionBilingualLabel }>
+  fields: Array<{
+    id: string
+    name: GcsExtensionBilingualLabel
+    group: { id: string; name: GcsExtensionBilingualLabel }
+    type: 'text' | 'date' | 'time'
+  }>
 }
+
+/** Text fields use their ID; date/time fields retain a timezone for each placeholder. */
+export type GcsNotificationFieldMapping = string | { fieldId: string; timeZone: string }
 
 /** A provider template's placeholder keys mapped to host-defined notifier fields. */
 export interface GcsNotificationMapping {
   templateId: string
-  personalisation: Record<string, string>
+  personalisation: Record<string, GcsNotificationFieldMapping>
 }
 
 /** Email template metadata; provider-specific content remains in the delivery service. */
