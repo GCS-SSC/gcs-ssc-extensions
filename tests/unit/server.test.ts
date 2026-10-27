@@ -103,7 +103,8 @@ const createTestRouteEvent = (
 describe('extension SDK server helpers', () => {
   it('preserves explicit acceptance and recovery outcomes for notification adapters', async () => {
     const adapter = defineGcsNotificationProviderAdapter({
-      resolveMapping: () => null,
+      resolveMapping: ({ streamId, streamConfig }) => streamConfig.notifier === 'approval.action_required'
+        ? { templateId: streamId, personalisation: {} } : null,
       prepareDelivery: async () => ({ serviceId: 'service-1' }),
       listTemplates: async () => [],
       getTemplate: async ({ templateId }) => ({ id: templateId, name: 'Approval', kind: 'email', requiredPersonalisation: [] }),
@@ -111,10 +112,13 @@ describe('extension SDK server helpers', () => {
       recover: async () => ({ kind: 'inconclusive' })
     })
     const context = {
-      agencyId: 'agency-1', agencyConfig: {}, secrets: { get: async () => null },
+      agencyId: 'agency-1', agencyConfig: {}, streamId: 'stream-1', streamConfig: {},
+      secrets: { get: async () => null },
       signal: new AbortController().signal
     }
-    expect(adapter.resolveMapping({ agencyConfig: {}, notifierId: 'approval.action_required' })).toBeNull()
+    expect(adapter.resolveMapping({ agencyConfig: {}, streamId: 'stream-1', streamConfig: {}, notifierId: 'approval.action_required' })).toBeNull()
+    expect(adapter.resolveMapping({ agencyConfig: {}, streamId: 'stream-2', streamConfig: { notifier: 'approval.action_required' }, notifierId: 'approval.action_required' }))
+      .toEqual({ templateId: 'stream-2', personalisation: {} })
     const deliveryContext = await adapter.prepareDelivery(context)
     await expect(adapter.send({
       ...context, deliveryContext, templateId: 'template-1', recipientEmail: 'approver@example.ca',

@@ -1147,7 +1147,7 @@ registry labels and supported purposes for core types and enabled Agency
 extensions. Workflow execution still resolves the exact target, enablement,
 assignment, status and publication through the existing lifecycle services.
 
-## Notification providers (SDK 0.3.20)
+## Notification providers (SDK 0.3.22)
 
 An Agency notification provider declares `notification-provider`,
 `configurationAccess: 'manager'`, and
@@ -1157,15 +1157,24 @@ loader. Client metadata exposes an empty `notificationProvider` marker and no
 adapter path or credentials.
 
 Export the adapter through `defineGcsNotificationProviderAdapter` from
-`@gcs-ssc/extensions/server`. Its local `resolveMapping` returns a
-`GcsNotificationMapping` or `null` without network calls. A mapping selects a
+`@gcs-ssc/extensions/server`. Its local `resolveMapping` receives the exact `streamId`, `streamConfig`, Agency
+configuration, and notifier ID. It returns a `GcsNotificationMapping` or `null`
+without network calls. A mapping selects a
 `templateId` and maps provider placeholder names to host notifier field keys in
 `personalisation`. `listTemplates` and `getTemplate` return email template metadata,
 including every `requiredPersonalisation` key, so configuration can validate
 placeholder coverage. Templates and their bilingual content remain provider-owned.
 
-Every external operation receives the owning Agency, JSON configuration,
-Agency-scoped secret reader, and an abort signal. Before sending, the host calls
+Every external operation receives the owning Agency and its configuration, the
+exact owning `streamId` and `streamConfig`, an Agency-scoped secret reader, and an
+abort signal. `validateAgencyConfig` normalizes Agency connection configuration;
+`validateStreamConfig` separately normalizes Stream template mappings. Both are
+optional. Stream configuration contains no credentials. Stream configuration guards
+receive the host-bound `notificationNotifiers` catalog for notification providers.
+Its `GcsNotificationNotifier` entries define notifier IDs, bilingual names, and field
+IDs with bilingual names. Guards validate submitted bindings against this catalog,
+then validate remote template placeholders with the delivery service. A browser's
+catalog data does not establish server-side mapping validity. Before sending, the host calls
 `prepareDelivery` and durably retains its non-secret JSON result as
 `deliveryContext`. This identifies the remote service without storing credentials.
 The host passes that context, a stable reference, recipient email, selected template,

@@ -11,6 +11,7 @@ import type {
   GcsLifecycleEntityOwnerKind,
   GcsQualifiedExtensionEntityType,
   GcsNotificationTemplate,
+  GcsNotificationNotifier,
   GcsNotificationMapping,
   GcsFileStoragePurpose,
   GcsFileStorageTarget,
@@ -121,6 +122,9 @@ export const defineGcsFileStorageMetadataValidator = <T extends GcsFileStorageMe
 export interface GcsNotificationProviderContext {
   agencyId: string
   agencyConfig: GcsExtensionJsonConfig
+  /** Exact owning Stream; sibling Streams never supply notification configuration. */
+  streamId: string
+  streamConfig: GcsExtensionJsonConfig
   secrets: { get: (key: string) => Promise<JsonValue | null> }
   signal: AbortSignal
 }
@@ -148,9 +152,12 @@ export interface GcsNotificationProviderAdapter {
   /** Pure local lookup: approval transactions must never perform provider network I/O. */
   resolveMapping: (input: {
     agencyConfig: GcsExtensionJsonConfig
+    streamId: string
+    streamConfig: GcsExtensionJsonConfig
     notifierId: string
   }) => GcsNotificationMapping | null
   validateAgencyConfig?: (config: GcsExtensionJsonConfig) => Promise<GcsExtensionJsonConfig> | GcsExtensionJsonConfig
+  validateStreamConfig?: (config: GcsExtensionJsonConfig) => Promise<GcsExtensionJsonConfig> | GcsExtensionJsonConfig
   /** Non-secret service identity captured durably before attempting delivery. */
   prepareDelivery: (context: GcsNotificationProviderContext) => Promise<GcsExtensionJsonConfig>
   listTemplates: (context: GcsNotificationProviderContext) => Promise<GcsNotificationTemplate[]>
@@ -622,6 +629,8 @@ export type GcsExtensionStatusReferenceGuardHookPayload = Omit<
 >
 
 export interface GcsExtensionConfigurationGuardContext {
+  /** Host catalog bound to a notification provider's Stream configuration write. */
+  notificationNotifiers?: readonly GcsNotificationNotifier[]
   /** Authoritative active Agency account catalogue, bound to the configuration owner and transaction. */
   codingAccounts?: { list: (input: {
     kind: 'commitment' | 'account_receivable' | 'credit_memo'; currency: string; agencyFiscalYearId?: string

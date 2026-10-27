@@ -5,7 +5,7 @@ export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './mess
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.3.21'
+export const GCS_EXTENSION_SDK_VERSION = '0.3.22'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -469,6 +469,13 @@ export interface GcsNotificationProviderDefinition {
 
 export interface GcsRegisteredNotificationProviderDefinition {
   adapter: { id: string }
+}
+
+/** Host-defined notification event and the fields available to template mappings. */
+export interface GcsNotificationNotifier {
+  id: string
+  name: GcsExtensionBilingualLabel
+  fields: Array<{ id: string; name: GcsExtensionBilingualLabel }>
 }
 
 /** A provider template's placeholder keys mapped to host-defined notifier fields. */
