@@ -10,6 +10,8 @@ import type {
   GcsLifecycleEntityAssignmentMode,
   GcsLifecycleEntityOwnerKind,
   GcsQualifiedExtensionEntityType,
+  GcsNotificationTemplate,
+  GcsNotificationMapping,
   GcsFileStoragePurpose,
   GcsFileStorageTarget,
   JsonValue
@@ -114,6 +116,55 @@ export const defineGcsFileStorageProviderAdapter = <T extends GcsFileStorageProv
 
 /** Preserves a typed provider metadata validator/normalizer for generated host registration. */
 export const defineGcsFileStorageMetadataValidator = <T extends GcsFileStorageMetadataValidator>(validator: T): T => validator
+
+/** Host-scoped credentials and deadline for notification provider calls. */
+export interface GcsNotificationProviderContext {
+  agencyId: string
+  agencyConfig: GcsExtensionJsonConfig
+  secrets: { get: (key: string) => Promise<JsonValue | null> }
+  signal: AbortSignal
+}
+
+export interface GcsNotificationSendInput extends GcsNotificationProviderContext {
+  deliveryContext: GcsExtensionJsonConfig
+  templateId: string
+  recipientEmail: string
+  personalisation: Record<string, string>
+  /** Stable host identity, also used to reconcile interrupted sends. */
+  reference: string
+}
+
+export type GcsNotificationSendResult =
+  | { kind: 'accepted'; notificationId: string | null }
+  | { kind: 'rejected'; retryable: boolean }
+
+/** Absence definitively rules out prior acceptance, including eventual-consistency uncertainty. */
+export type GcsNotificationRecoveryResult =
+  | { kind: 'found'; notificationId: string }
+  | { kind: 'absent' }
+  | { kind: 'inconclusive' }
+
+export interface GcsNotificationProviderAdapter {
+  /** Pure local lookup: approval transactions must never perform provider network I/O. */
+  resolveMapping: (input: {
+    agencyConfig: GcsExtensionJsonConfig
+    notifierId: string
+  }) => GcsNotificationMapping | null
+  validateAgencyConfig?: (config: GcsExtensionJsonConfig) => Promise<GcsExtensionJsonConfig> | GcsExtensionJsonConfig
+  /** Non-secret service identity captured durably before attempting delivery. */
+  prepareDelivery: (context: GcsNotificationProviderContext) => Promise<GcsExtensionJsonConfig>
+  listTemplates: (context: GcsNotificationProviderContext) => Promise<GcsNotificationTemplate[]>
+  getTemplate: (input: GcsNotificationProviderContext & { templateId: string }) => Promise<GcsNotificationTemplate>
+  send: (input: GcsNotificationSendInput) => Promise<GcsNotificationSendResult>
+  recover?: (input: GcsNotificationProviderContext & {
+    deliveryContext: GcsExtensionJsonConfig
+    reference: string
+    attemptedAt: string
+  }) => Promise<GcsNotificationRecoveryResult>
+}
+
+/** Preserves a typed notification adapter for generated host registration. */
+export const defineGcsNotificationProviderAdapter = <T extends GcsNotificationProviderAdapter>(adapter: T): T => adapter
 
 /**
  * Preserves a typed Kysely migration for extension migration discovery.

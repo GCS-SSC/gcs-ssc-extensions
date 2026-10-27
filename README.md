@@ -1146,3 +1146,38 @@ Agency Workflow create/detail editors use the authorized
 registry labels and supported purposes for core types and enabled Agency
 extensions. Workflow execution still resolves the exact target, enablement,
 assignment, status and publication through the existing lifecycle services.
+
+## Notification providers (SDK 0.3.20)
+
+An Agency notification provider declares `notification-provider`,
+`configurationAccess: 'manager'`, and
+`notificationProvider: { adapter: { path: './server/provider.ts' } }`.
+Discovery contains the adapter inside its package and registers a server-only lazy
+loader. Client metadata exposes an empty `notificationProvider` marker and no
+adapter path or credentials.
+
+Export the adapter through `defineGcsNotificationProviderAdapter` from
+`@gcs-ssc/extensions/server`. Its local `resolveMapping` returns a
+`GcsNotificationMapping` or `null` without network calls. A mapping selects a
+`templateId` and maps provider placeholder names to host notifier field keys in
+`personalisation`. `listTemplates` and `getTemplate` return email template metadata,
+including every `requiredPersonalisation` key, so configuration can validate
+placeholder coverage. Templates and their bilingual content remain provider-owned.
+
+Every external operation receives the owning Agency, JSON configuration,
+Agency-scoped secret reader, and an abort signal. Before sending, the host calls
+`prepareDelivery` and durably retains its non-secret JSON result as
+`deliveryContext`. This identifies the remote service without storing credentials.
+The host passes that context, a stable reference, recipient email, selected template,
+and resolved personalisation into `send`.
+
+`send` returns `{ kind: 'accepted', notificationId: string | null }` or an explicit
+`{ kind: 'rejected', retryable: boolean }`. An exception means acceptance is uncertain.
+Acceptance is separate from delivery; providers need not offer delivery reporting.
+The optional `recover` receives the original `attemptedAt`, reference, and retained
+`deliveryContext`. It returns `found` with a message ID, `absent`, or `inconclusive`.
+Only `absent` permits another send: the provider must definitively rule out prior
+acceptance, including eventual-consistency uncertainty. An empty search result alone
+need not prove absence. Changed service identity, expired lookup history, missing
+recovery support, and uncertain lookup results must remain inconclusive. Never place
+API keys or other secrets in `deliveryContext`.

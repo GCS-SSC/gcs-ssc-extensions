@@ -5,7 +5,7 @@ export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './mess
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.3.19'
+export const GCS_EXTENSION_SDK_VERSION = '0.3.20'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -462,6 +462,29 @@ export interface GcsFileStorageProviderDefinition {
   metadata?: GcsFileStorageMetadataContributionDefinition
 }
 
+/** Server-only notification delivery contribution. The extension key identifies the provider. */
+export interface GcsNotificationProviderDefinition {
+  adapter: { path: string }
+}
+
+export interface GcsRegisteredNotificationProviderDefinition {
+  adapter: { id: string }
+}
+
+/** A provider template's placeholder keys mapped to host-defined notifier fields. */
+export interface GcsNotificationMapping {
+  templateId: string
+  personalisation: Record<string, string>
+}
+
+/** Email template metadata; provider-specific content remains in the delivery service. */
+export interface GcsNotificationTemplate {
+  id: string
+  name: string
+  kind: 'email'
+  requiredPersonalisation: string[]
+}
+
 export interface GcsExtensionSlotDefinition extends GcsExtensionComponentDefinition {
   slot: GcsExtensionSlot
 }
@@ -653,6 +676,7 @@ export type GcsExtensionHostCapability =
   | 'extension-lifecycle-hooks'
   | 'lifecycle-entities'
   | 'file-storage-provider'
+  | 'notification-provider'
   | 'agreement-number-provider'
   | 'coding-allocator'
   | 'configuration-access'
@@ -720,6 +744,7 @@ export interface GcsExtensionDefinition {
   agreementNumberProvider?: { path: string }
   /** Server allocator for host-created financial coding; the host validates and persists its result. */
   codingAllocator?: { path: string }
+  notificationProvider?: GcsNotificationProviderDefinition
   fileStorageProvider?: GcsFileStorageProviderDefinition
 }
 
@@ -829,6 +854,7 @@ export interface GcsClientExtensionManifest {
     createActions: GcsClientExtensionCreateActionDefinition[]
     paymentAmountCalculators: GcsClientExtensionPaymentAmountCalculatorDefinition[]
   }
+  notificationProvider?: Record<string, never>
   fileStorageProvider?: {
     metadata?: Omit<GcsFileStorageMetadataContributionDefinition, 'component' | 'validator'> & {
       component: GcsClientExtensionComponentDefinition
