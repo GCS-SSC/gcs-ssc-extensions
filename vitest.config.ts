@@ -5,6 +5,7 @@ export const EXTENSION_SDK_COVERAGE_INCLUDE = [
   'src/index.ts',
   'src/messages.ts',
   'src/nuxt.ts',
+  'src/request-body.ts',
   'src/server.ts',
   'src/testing.ts',
   'src/ui.ts'

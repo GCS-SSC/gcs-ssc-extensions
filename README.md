@@ -450,6 +450,8 @@ The host resolves the entity from the declared route param, verifies extension e
 
 Extension route handlers receive a stable SDK context object. Prefer `params`, `db`, `config`, `entity`, `stream`, `agency`, `authorizedScope`, `readBody`, and `getHeader` from that context instead of reading host H3 internals:
 
+`readBody` and `readGcsExtensionRequestBody` enforce a 1 MiB request-byte limit before parsing, including chunked requests. Oversized bodies return HTTP 413. Repeated SDK reads reuse the parsed body and exact JSON audit bytes; use these helpers consistently rather than mixing SDK and H3 body readers on one request.
+
 ```ts
 import { defineGcsExtensionRouteHandler } from '@gcs-ssc/extensions/server'
 
