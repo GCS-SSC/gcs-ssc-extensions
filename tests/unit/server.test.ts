@@ -14,6 +14,7 @@ import {
   attachGcsLifecycleEntityIdentity,
   createGcsExtensionRouteContext,
   requireGcsExtensionAgreementFinancials,
+  defineGcsNotificationProviderAdapter,
   defineGcsFileStorageMetadataValidator,
   defineGcsFileStorageProviderAdapter,
   GCS_FILE_STORAGE_PROVIDER_OBJECT_ID_MAX_BYTES,
@@ -101,6 +102,34 @@ const createTestRouteEvent = (
 }
 
 describe('extension SDK server helpers', () => {
+  it('preserves explicit acceptance and recovery outcomes for notification adapters', async () => {
+    const adapter = defineGcsNotificationProviderAdapter({
+      resolveMapping: ({ streamId, streamConfig }) => streamConfig.notifier === 'approval.action_required'
+        ? { templateId: streamId, personalisation: {} } : null,
+      prepareDelivery: async () => ({ serviceId: 'service-1' }),
+      listTemplates: async () => [],
+      getTemplate: async ({ templateId }) => ({ id: templateId, name: 'Approval', kind: 'email', requiredPersonalisation: [] }),
+      send: async () => ({ kind: 'accepted', notificationId: null }),
+      recover: async () => ({ kind: 'inconclusive' })
+    })
+    const context = {
+      agencyId: 'agency-1', agencyConfig: {}, streamId: 'stream-1', streamConfig: {},
+      secrets: { get: async () => null },
+      signal: new AbortController().signal
+    }
+    expect(adapter.resolveMapping({ agencyConfig: {}, streamId: 'stream-1', streamConfig: {}, notifierId: 'approval.action_required' })).toBeNull()
+    expect(adapter.resolveMapping({ agencyConfig: {}, streamId: 'stream-2', streamConfig: { notifier: 'approval.action_required' }, notifierId: 'approval.action_required' }))
+      .toEqual({ templateId: 'stream-2', personalisation: {} })
+    const deliveryContext = await adapter.prepareDelivery(context)
+    await expect(adapter.send({
+      ...context, deliveryContext, templateId: 'template-1', recipientEmail: 'approver@example.ca',
+      personalisation: {}, reference: 'turn-1'
+    })).resolves.toEqual({ kind: 'accepted', notificationId: null })
+    await expect(adapter.recover({
+      ...context, deliveryContext, reference: 'turn-1', attemptedAt: '2026-10-27T12:00:00Z'
+    })).resolves.toEqual({ kind: 'inconclusive' })
+  })
+
   it('publishes the stable provider object identity UTF-8 byte limit', () => {
     expect(GCS_FILE_STORAGE_PROVIDER_OBJECT_ID_MAX_BYTES).toBe(512)
   })

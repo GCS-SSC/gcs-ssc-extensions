@@ -1148,3 +1148,80 @@ Agency Workflow create/detail editors use the authorized
 registry labels and supported purposes for core types and enabled Agency
 extensions. Workflow execution still resolves the exact target, enablement,
 assignment, status and publication through the existing lifecycle services.
+
+## Notification providers (SDK 0.3.22)
+
+An Agency notification provider declares `notification-provider`,
+`configurationAccess: 'manager'`, and
+`notificationProvider: { adapter: { path: './server/provider.ts' } }`.
+Discovery contains the adapter inside its package and registers a server-only lazy
+loader. Client metadata exposes an empty `notificationProvider` marker and no
+adapter path or credentials.
+
+Export the adapter through `defineGcsNotificationProviderAdapter` from
+`@gcs-ssc/extensions/server`. Its local `resolveMapping` receives the exact `streamId`, `streamConfig`, Agency
+configuration, and notifier ID. It returns a `GcsNotificationMapping` or `null`
+without network calls. A mapping selects a
+`templateId` and maps provider placeholder names to host notifier field keys in
+`personalisation`. `listTemplates` and `getTemplate` return email template metadata,
+including every `requiredPersonalisation` key, so configuration can validate
+placeholder coverage. Templates and their bilingual content remain provider-owned.
+
+Every external operation receives the owning Agency and its configuration, the
+exact owning `streamId` and `streamConfig`, an Agency-scoped secret reader, and an
+abort signal. `validateAgencyConfig` normalizes Agency connection configuration;
+`validateStreamConfig` separately normalizes Stream template mappings. Both are
+optional. Stream configuration contains no credentials. Stream configuration guards
+receive the host-bound `notificationNotifiers` catalog for notification providers.
+Its `GcsNotificationNotifier` entries define notifier IDs, bilingual names, and field
+IDs with bilingual names. Every field declares a host-owned group with an ID and
+bilingual name, plus `type: 'text' | 'email' | 'localized-text' | 'date' | 'time'`.
+Clients display those groups without hardcoding host notifier identities.
+`GcsNotificationAuthoredFieldMapping` is a field
+ID string for ordinary text or email, `{ fieldId, locale }` for localized text, or
+`{ fieldId, timeZone, locale }` for a date/time placeholder. Each placeholder retains
+its explicitly selected `en` or `fr` locale and, for temporal fields, timezone.
+Placeholders may reference the same field with different locales and timezones.
+The read contract `GcsNotificationFieldMapping` also accepts earlier
+`{ fieldId, timeZone }` values so editors retain them for explicit repair.
+`GcsNotificationMapping.recipientEmail` is a host email field ID, not a literal
+address. It remains optional only for reading earlier saved mappings.
+`GcsNotificationAuthoredMapping` requires that recipient field and authored
+personalisation bindings. New saves and fresh sends reject missing recipients or
+missing locales on language-sensitive fields. There is no implicit recipient,
+language, or timezone default. The host and extension guard validate binding kinds,
+recipient eligibility, locale, and timezone against the authoritative catalog.
+Guards also validate remote template placeholders with the delivery service. A browser's
+catalog data does not establish server-side mapping validity. Before sending, the host calls
+`prepareDelivery` and durably retains its non-secret JSON result as
+`deliveryContext`. This identifies the remote service without storing credentials.
+The host passes that context, a stable reference, recipient email, selected template,
+and resolved personalisation into `send`.
+
+`send` returns `{ kind: 'accepted', notificationId: string | null }` or an explicit
+`{ kind: 'rejected', retryable: boolean }`. An exception means acceptance is uncertain.
+Acceptance is separate from delivery; providers need not offer delivery reporting.
+The optional `recover` receives the original `attemptedAt`, reference, and retained
+`deliveryContext`. It returns `found` with a message ID, `absent`, or `inconclusive`.
+Only `absent` permits another send: the provider must definitively rule out prior
+acceptance, including eventual-consistency uncertainty. An empty search result alone
+need not prove absence. Changed service identity, expired lookup history, missing
+recovery support, and uncertain lookup results must remain inconclusive. Never place
+API keys or other secrets in `deliveryContext`.
+
+## Package verification (SDK 0.3.21)
+
+`bun run test:package` builds and packs the SDK, installs that tarball into an
+external temporary consumer, and imports every public runtime export with Node ESM.
+It also checks that every declared type entry exists in the packed package. This
+check uses no workspace aliases or Bun module resolution. Run it before publishing
+an SDK release. SDK 0.3.21 fixes explicit JavaScript paths in runtime and declaration
+imports for native Node ESM consumers.
+
+`ExtensionResourceLayoutPage` delegates to the host's existing
+`CommonResourceLayoutPage`, the same main-page table template used by Agreements.
+It passes through table data, columns, search and pagination models, toolbar options,
+events, and scoped row slots. `ExtensionResourceLayoutCard` remains available for
+embedded card tables. The standalone testing runtime supplies row and named-slot
+rendering for the page wrapper; `test:package` verifies those bindings through the
+packed public UI and testing entrypoints.

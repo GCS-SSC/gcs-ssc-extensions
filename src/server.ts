@@ -11,13 +11,16 @@ import type {
   GcsLifecycleEntityAssignmentMode,
   GcsLifecycleEntityOwnerKind,
   GcsQualifiedExtensionEntityType,
+  GcsNotificationTemplate,
+  GcsNotificationNotifier,
+  GcsNotificationMapping,
   GcsFileStoragePurpose,
   GcsFileStorageTarget,
   JsonValue
-} from './index'
+} from './index.js'
 
-export type { ExtensionEntityOwnerType, ExtensionEntityTabContext, ExtensionScope } from './index'
-export type { GcsFileStoragePurpose, GcsFileStorageTarget } from './index'
+export type { ExtensionEntityOwnerType, ExtensionEntityTabContext, ExtensionScope } from './index.js'
+export type { GcsFileStoragePurpose, GcsFileStorageTarget } from './index.js'
 export { GCS_REQUEST_BODY_MAX_BYTES } from './request-body.js'
 
 export type GcsExtensionMigration = Migration
@@ -116,6 +119,61 @@ export const defineGcsFileStorageProviderAdapter = <T extends GcsFileStorageProv
 
 /** Preserves a typed provider metadata validator/normalizer for generated host registration. */
 export const defineGcsFileStorageMetadataValidator = <T extends GcsFileStorageMetadataValidator>(validator: T): T => validator
+
+/** Host-scoped credentials and deadline for notification provider calls. */
+export interface GcsNotificationProviderContext {
+  agencyId: string
+  agencyConfig: GcsExtensionJsonConfig
+  /** Exact owning Stream; sibling Streams never supply notification configuration. */
+  streamId: string
+  streamConfig: GcsExtensionJsonConfig
+  secrets: { get: (key: string) => Promise<JsonValue | null> }
+  signal: AbortSignal
+}
+
+export interface GcsNotificationSendInput extends GcsNotificationProviderContext {
+  deliveryContext: GcsExtensionJsonConfig
+  templateId: string
+  recipientEmail: string
+  personalisation: Record<string, string>
+  /** Stable host identity, also used to reconcile interrupted sends. */
+  reference: string
+}
+
+export type GcsNotificationSendResult =
+  | { kind: 'accepted'; notificationId: string | null }
+  | { kind: 'rejected'; retryable: boolean }
+
+/** Absence definitively rules out prior acceptance, including eventual-consistency uncertainty. */
+export type GcsNotificationRecoveryResult =
+  | { kind: 'found'; notificationId: string }
+  | { kind: 'absent' }
+  | { kind: 'inconclusive' }
+
+export interface GcsNotificationProviderAdapter {
+  /** Pure local lookup: approval transactions must never perform provider network I/O. */
+  resolveMapping: (input: {
+    agencyConfig: GcsExtensionJsonConfig
+    streamId: string
+    streamConfig: GcsExtensionJsonConfig
+    notifierId: string
+  }) => GcsNotificationMapping | null
+  validateAgencyConfig?: (config: GcsExtensionJsonConfig) => Promise<GcsExtensionJsonConfig> | GcsExtensionJsonConfig
+  validateStreamConfig?: (config: GcsExtensionJsonConfig) => Promise<GcsExtensionJsonConfig> | GcsExtensionJsonConfig
+  /** Non-secret service identity captured durably before attempting delivery. */
+  prepareDelivery: (context: GcsNotificationProviderContext) => Promise<GcsExtensionJsonConfig>
+  listTemplates: (context: GcsNotificationProviderContext) => Promise<GcsNotificationTemplate[]>
+  getTemplate: (input: GcsNotificationProviderContext & { templateId: string }) => Promise<GcsNotificationTemplate>
+  send: (input: GcsNotificationSendInput) => Promise<GcsNotificationSendResult>
+  recover?: (input: GcsNotificationProviderContext & {
+    deliveryContext: GcsExtensionJsonConfig
+    reference: string
+    attemptedAt: string
+  }) => Promise<GcsNotificationRecoveryResult>
+}
+
+/** Preserves a typed notification adapter for generated host registration. */
+export const defineGcsNotificationProviderAdapter = <T extends GcsNotificationProviderAdapter>(adapter: T): T => adapter
 
 /**
  * Preserves a typed Kysely migration for extension migration discovery.
@@ -573,6 +631,8 @@ export type GcsExtensionStatusReferenceGuardHookPayload = Omit<
 >
 
 export interface GcsExtensionConfigurationGuardContext {
+  /** Host catalog bound to a notification provider's Stream configuration write. */
+  notificationNotifiers?: readonly GcsNotificationNotifier[]
   /** Authoritative active Agency account catalogue, bound to the configuration owner and transaction. */
   codingAccounts?: { list: (input: {
     kind: 'commitment' | 'account_receivable' | 'credit_memo'; currency: string; agencyFiscalYearId?: string

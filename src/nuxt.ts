@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import type { GcsExtensionAuthContext } from './server'
+import type { GcsExtensionAuthContext } from './server.js'
 
 export interface GcsRef<T> {
   value: T
@@ -67,6 +67,7 @@ declare global {
   const CommonCurrencyInput: Component
   const CommonSaveButton: Component
   const CommonEntityEditorWorkspace: Component
+  const CommonResourceLayoutPage: Component
   const CommonResourceLayoutCard: Component
   const CommonRouteTabs: Component
   const CommonSection: Component

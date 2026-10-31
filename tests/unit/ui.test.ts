@@ -12,6 +12,7 @@ import {
   ExtensionAssessmentSchemaPageSection,
   ExtensionCompletionSection,
   ExtensionCompletionPanel,
+  ExtensionResourceLayoutPage,
   ExtensionDetailPage,
   ExtensionDetailWorkspace,
   ExtensionCompactTable,
@@ -211,6 +212,22 @@ describe('extension SDK UI runtime adapters', () => {
     expect(runtime.components.CommonStatusSelect).toBeTruthy()
 
     clearExtensionUiRuntime()
+  })
+
+  it('forwards page-table data, model events and named row slots to the existing host page template', () => {
+    const runtime = createExtensionTestUiRuntime()
+    setExtensionUiRuntime(runtime)
+    const attrs = {
+      data: [{ id: 'template-1' }], columns: [{ id: 'actions' }],
+      pagination: { pageIndex: 0, pageSize: 10 }, search: '', showButton: false,
+      'onUpdate:pagination': vi.fn(), 'onUpdate:search': vi.fn(), onRetry: vi.fn()
+    }
+    const slots = { 'actions-cell': vi.fn(() => 'Edit'), empty: vi.fn(() => 'No templates') }
+    const render = (ExtensionResourceLayoutPage as { setup: Function }).setup({}, { attrs, slots }) as () => { type: unknown; props: unknown; children: unknown }
+    const vnode = render()
+    expect(vnode.type).toBe(runtime.components.CommonResourceLayoutPage)
+    expect(vnode.props).toEqual(attrs)
+    expect(vnode.children).toMatchObject(slots)
   })
 
   it('forwards extension record shells and literal completion labels through the host runtime', () => {

@@ -2,7 +2,7 @@ import { normalizeGcsExtensionLocale, translateGcsExtensionMessage, type GcsExte
 import { computed, defineComponent, h } from 'vue'
 import type { Component, Ref, VNode } from 'vue'
 import type { FlowDiagramProps } from './diagrams.js'
-import { throwFetchResponseError } from './index'
+import { throwFetchResponseError } from './index.js'
 import type {
   GcsPaymentEvidenceExtensionContext,
   GcsExtensionBilingualLabel,
@@ -15,7 +15,7 @@ import type {
   GcsFileStorageTarget,
   GcsExtensionRbacRequirement,
   JsonValue
-} from './index'
+} from './index.js'
 
 export type { FlowDiagramDefinition, FlowDiagramEdgeKind, FlowDiagramNode, FlowDiagramProps, FlowDiagramRoute } from './diagrams.js'
 
@@ -105,6 +105,7 @@ export type GcsExtensionHostComponentName =
   | 'CommonFlowDiagram'
   | 'CommonPaymentCalculationBreakdown'
   | 'CommonResourceLayoutCard'
+  | 'CommonResourceLayoutPage'
   | 'CommonRouteTabs'
   | 'CommonSaveButton'
   | 'CommonSection'
@@ -321,6 +322,7 @@ export interface GcsExtensionSelectableTableProps<Item extends { id: string | nu
   onSelect?: (item: Item) => void
 }
 export const ExtensionSelectableTable = createExtensionHostComponent<GcsExtensionSelectableTableProps<any>>('CommonSelectableTable')
+export const ExtensionResourceLayoutPage = createExtensionHostComponent('CommonResourceLayoutPage')
 export const ExtensionResourceLayoutCard = createExtensionHostComponent('CommonResourceLayoutCard')
 export const ExtensionRouteTabs = createExtensionHostComponent('CommonRouteTabs')
 export const ExtensionSaveButton = createExtensionHostComponent('CommonSaveButton')

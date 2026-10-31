@@ -5,7 +5,7 @@ export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './mess
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
-export const GCS_EXTENSION_SDK_VERSION = '0.3.19'
+export const GCS_EXTENSION_SDK_VERSION = '0.3.25'
 
 const FETCH_ERROR_TEXT_LIMIT = 2_000
 
@@ -462,6 +462,62 @@ export interface GcsFileStorageProviderDefinition {
   metadata?: GcsFileStorageMetadataContributionDefinition
 }
 
+/** Server-only notification delivery contribution. The extension key identifies the provider. */
+export interface GcsNotificationProviderDefinition {
+  adapter: { path: string }
+}
+
+export interface GcsRegisteredNotificationProviderDefinition {
+  adapter: { id: string }
+}
+
+/** Host-defined notification event and the fields available to template mappings. */
+export interface GcsNotificationNotifier {
+  id: string
+  name: GcsExtensionBilingualLabel
+  fields: Array<{
+    id: string
+    name: GcsExtensionBilingualLabel
+    group: { id: string; name: GcsExtensionBilingualLabel }
+    type: 'text' | 'email' | 'localized-text' | 'date' | 'time'
+  }>
+}
+
+export type GcsNotificationLocale = 'en' | 'fr'
+
+/** New language-sensitive bindings retain an explicit locale for each placeholder. */
+export type GcsNotificationAuthoredFieldMapping =
+  | string
+  | { fieldId: string; locale: GcsNotificationLocale }
+  | { fieldId: string; timeZone: string; locale: GcsNotificationLocale }
+
+/** Read contract also retains earlier temporal bindings so editors can repair them. */
+export type GcsNotificationFieldMapping =
+  | GcsNotificationAuthoredFieldMapping
+  | { fieldId: string; timeZone: string }
+
+/** A provider template's placeholder keys mapped to host-defined notifier fields. */
+export interface GcsNotificationMapping {
+  templateId: string
+  /** Host email field ID. Missing earlier values remain editable but cannot send. */
+  recipientEmail?: string
+  personalisation: Record<string, GcsNotificationFieldMapping>
+}
+
+/** New saves require an explicit recipient binding and catalog-validated field bindings. */
+export interface GcsNotificationAuthoredMapping extends Omit<GcsNotificationMapping, 'recipientEmail' | 'personalisation'> {
+  recipientEmail: string
+  personalisation: Record<string, GcsNotificationAuthoredFieldMapping>
+}
+
+/** Email template metadata; provider-specific content remains in the delivery service. */
+export interface GcsNotificationTemplate {
+  id: string
+  name: string
+  kind: 'email'
+  requiredPersonalisation: string[]
+}
+
 export interface GcsExtensionSlotDefinition extends GcsExtensionComponentDefinition {
   slot: GcsExtensionSlot
 }
@@ -653,6 +709,7 @@ export type GcsExtensionHostCapability =
   | 'extension-lifecycle-hooks'
   | 'lifecycle-entities'
   | 'file-storage-provider'
+  | 'notification-provider'
   | 'agreement-number-provider'
   | 'coding-allocator'
   | 'configuration-access'
@@ -720,6 +777,7 @@ export interface GcsExtensionDefinition {
   agreementNumberProvider?: { path: string }
   /** Server allocator for host-created financial coding; the host validates and persists its result. */
   codingAllocator?: { path: string }
+  notificationProvider?: GcsNotificationProviderDefinition
   fileStorageProvider?: GcsFileStorageProviderDefinition
 }
 
@@ -829,6 +887,7 @@ export interface GcsClientExtensionManifest {
     createActions: GcsClientExtensionCreateActionDefinition[]
     paymentAmountCalculators: GcsClientExtensionPaymentAmountCalculatorDefinition[]
   }
+  notificationProvider?: Record<string, never>
   fileStorageProvider?: {
     metadata?: Omit<GcsFileStorageMetadataContributionDefinition, 'component' | 'validator'> & {
       component: GcsClientExtensionComponentDefinition

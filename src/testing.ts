@@ -2,11 +2,11 @@ import { computed, defineComponent, h, ref, toValue } from 'vue'
 import type { Component, Ref } from 'vue'
 import {
   setExtensionUiRuntime
-} from './ui'
+} from './ui.js'
 import type {
   GcsExtensionHostComponentName,
   GcsExtensionUiRuntime
-} from './ui'
+} from './ui.js'
 
 export interface ExtensionTestRouteResponse {
   statusCode: number
@@ -206,7 +206,7 @@ const createExtensionTestComponent = (name: GcsExtensionHostComponentName): Comp
     })
   }
 
-  if (name === 'CommonCompactTable') {
+  if (name === 'CommonCompactTable' || name === 'CommonResourceLayoutPage') {
     return defineComponent({
       name,
       inheritAttrs: false,
@@ -292,6 +292,7 @@ const hostComponentNames: GcsExtensionHostComponentName[] = [
   'CommonFlowDiagram',
   'CommonPaymentCalculationBreakdown',
   'CommonResourceLayoutCard',
+  'CommonResourceLayoutPage',
   'CommonRouteTabs',
   'CommonSaveButton',
   'CommonSection',
