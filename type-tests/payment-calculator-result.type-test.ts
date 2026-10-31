@@ -1,10 +1,11 @@
 import type { GcsPaymentAmountCalculatorResult } from '../src/ui'
+import { moneyFromMinorUnits } from '../src/money'
 
 const exactResult: GcsPaymentAmountCalculatorResult = {
-  ceilingAmount: '99999999999999999.99',
-  suggestedAmount: '1234.56',
+  ceilingAmount: moneyFromMinorUnits('99999999999999999999999999999999999999', 'CAD'),
+  suggestedAmount: moneyFromMinorUnits('123456', 'CAD'),
   currency: 'CAD',
-  details: [{ label: 'baseAmount', value: '1234.56' }],
+  details: [{ label: 'baseAmount', value: moneyFromMinorUnits('123456', 'CAD') }],
   explanation: [{
     label: 'Calculated payment',
     rows: [{ label: 'Forecast', value: 'CAD $2,000.00' }, { label: 'Payments already made', value: 'CAD $500.00', operator: '−' }],
@@ -15,7 +16,7 @@ const exactResult: GcsPaymentAmountCalculatorResult = {
 }
 
 const invalidResult: GcsPaymentAmountCalculatorResult = {
-  // @ts-expect-error -- calculator money outputs must be canonical decimal text, not numbers.
+  // @ts-expect-error -- calculator money outputs require currency-bearing minor-unit objects.
   ceilingAmount: 1234.56
 }
 

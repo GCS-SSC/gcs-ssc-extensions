@@ -2,9 +2,9 @@ import type {
   GcsExtensionAgreementClaimLineItemCreateInput,
   GcsExtensionMoneyInput
 } from '../src/server'
+import { moneyFromMinorUnits } from '../src/money'
 
-const authoritativeMoney: GcsExtensionMoneyInput = '99999999999999999.99'
-const compatibilityMoney: GcsExtensionMoneyInput = 1234.56
+const authoritativeMoney: GcsExtensionMoneyInput = moneyFromMinorUnits('99999999999999999999999999999999999999', 'CAD')
 
 const authoritativeClaimLine: GcsExtensionAgreementClaimLineItemCreateInput = {
   budgetLineItemId: null,
@@ -16,14 +16,17 @@ const authoritativeClaimLine: GcsExtensionAgreementClaimLineItemCreateInput = {
   currency: 'cad'
 }
 
-const compatibilityClaimLine: GcsExtensionAgreementClaimLineItemCreateInput = {
-  ...authoritativeClaimLine,
-  amount: compatibilityMoney
-}
-
-// @ts-expect-error -- money inputs accept decimal text or backwards-compatible finite numbers, not arbitrary values.
+// @ts-expect-error -- money inputs require currency-bearing minor-unit objects.
 const invalidMoney: GcsExtensionMoneyInput = true
+// @ts-expect-error -- human decimal text must pass through currency-aware conversion.
+const decimalMoney: GcsExtensionMoneyInput = '1234.56'
+// @ts-expect-error -- numeric compatibility is deliberately absent.
+const numericMoney: GcsExtensionMoneyInput = 1234.56
+// @ts-expect-error -- minor-unit text alone does not carry its denomination.
+const bareMinorUnits: GcsExtensionMoneyInput = '123456'
 
 void authoritativeClaimLine
-void compatibilityClaimLine
 void invalidMoney
+void decimalMoney
+void numericMoney
+void bareMinorUnits

@@ -4,6 +4,7 @@ export const EXTENSION_SDK_COVERAGE_INCLUDE = [
   'src/audit-ownership.ts',
   'src/index.ts',
   'src/messages.ts',
+  'src/money.ts',
   'src/nuxt.ts',
   'src/request-body.ts',
   'src/server.ts',

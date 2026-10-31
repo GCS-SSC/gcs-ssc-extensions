@@ -1,3 +1,4 @@
+import type { Money, MoneyInput } from './money.js'
 import { normalizeGcsExtensionLocale, translateGcsExtensionMessage, type GcsExtensionMessages, type GcsExtensionMessageValues } from './messages.js'
 import { computed, defineComponent, h } from 'vue'
 import type { Component, Ref, VNode } from 'vue'
@@ -360,9 +361,8 @@ export const ExtensionFormField = createExtensionHostComponent('UFormField')
 export const ExtensionIcon = createExtensionHostComponent('UIcon')
 export const ExtensionInput = createExtensionHostComponent('UInput')
 export interface GcsExtensionCurrencyInputProps {
-  modelValue?: string | null
+  modelValue?: MoneyInput
   currency: string | null | undefined
-  formatValue?: (value: string, locale: string, currency: string) => string | null
 }
 export const ExtensionCurrencyInput = createExtensionHostComponent<GcsExtensionCurrencyInputProps>('CommonCurrencyInput')
 export const ExtensionInputTags = createExtensionHostComponent('UInputTags')
@@ -466,8 +466,8 @@ export interface GcsPaymentAmountCalculatorComponentProps {
   model: Record<string, unknown>
 }
 
-/** Canonical two-decimal money text emitted by a payment amount calculator. */
-export type GcsPaymentAmountCalculatorMoney = string
+/** Currency-bearing integer minor-unit money emitted by a payment amount calculator. */
+export type GcsPaymentAmountCalculatorMoney = Money
 
 /** Public result contract emitted by an extension payment amount calculator. */
 export interface GcsPaymentAmountCalculatorResult {

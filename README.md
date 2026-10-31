@@ -16,9 +16,65 @@ authoritative. Extensions own any corresponding interface labels in their local 
 
 ## Money write inputs
 
-Extension-to-host money writes use `GcsExtensionMoneyInput` from `@gcs-ssc/extensions/server`. Send canonical plain decimal text with at most two fractional digits. Text is authoritative and supports the host's full persisted money range; for example, use `'1234.56'` rather than `1234.56`.
+All monetary API values use `Money` from `@gcs-ssc/extensions/money`:
 
-Payment amount calculators emit `GcsPaymentAmountCalculatorResult` from `@gcs-ssc/extensions/ui`. Its monetary result and detail fields use canonical two-decimal strings; calculators must not emit JavaScript numbers for money. Optional `explanation` ledgers carry extension-localized labels, operand rows with formatted values and arithmetic operators, a total, and an optional short note, for the host-owned Calculation details disclosure alongside Financial inputs and Commitment lines. Calculators should publish updated explanation text on locale changes without recalculating.
+The submitted Claim field catalog marks `egcs_fc_amount` with `valueType: 'money'`.
+Month/count fields retain `number`; external form integrations convert human decimal
+answers into the owning currency before invoking host Claim writes.
+
+```ts
+import { addMoney, formatMoneyText, parseCurrencyMoney, parseMoney } from '@gcs-ssc/extensions/money'
+
+const entered = parseCurrencyMoney('123.45', 'USD')
+// { amount: '12345', currency: 'USD' }
+const received = parseMoney(JSON.parse(JSON.stringify(entered)))
+const total = addMoney(received, parseCurrencyMoney('0.05', 'USD'))
+formatMoneyText(total, 'en-CA')
+```
+
+`amount` is canonical signed integer text in the actual currency's minor unit;
+`currency` is its uppercase code. Money values are immutable, JSON-safe objects.
+UI-only `MoneyDraft` preserves invalid human text and is rejected by every money
+parser; it never enters transport or persistence.
+Human inputs use major-unit decimal text only at `parseCurrencyMoney`; use
+`majorMoneyText` for editor drafts and plain document values. API parsers accept
+neither bare decimal strings nor JavaScript numbers. There are no legacy overloads.
+Persisted rows permit at most 38 minor-unit digits; derived totals remain unbounded.
+`isPersistableMoney` enforces the row boundary separately from `parseMoney`.
+
+All monetary arithmetic uses the shared Dinero.js BigInt implementation. Addition,
+subtraction and comparison reject mixed currencies. `sumMoney`, `minMoney` and
+`maxMoney` take an explicit currency even when their input is empty. Only sums have
+an empty result (`zeroMoney(currency)`); extrema reject empty inputs.
+
+The registry uses the installed Dinero currency definitions and explicit historical
+ANG, BYR, CUC and HRK definitions. JPY has no fractional unit, USD uses hundredths,
+KWD thousandths, CLF ten-thousandths, and MGA fifths (`0.2` major units per minor
+unit). `parseCurrencyMoney` rejects fractional minor units without rounding. XDR
+has no defined settlement minor unit and is rejected for monetary use. The currency
+identifier may remain in external catalogs without becoming a supported money unit.
+
+`DecimalText` is a separate dimensionless type for percentages and allocation ratios.
+`multiplyMoney`, `divideMoney` and `percentageMoney` retain exact rational
+intermediates and settle once, using explicit Dinero rounding. Their default is
+half away from zero at the actual currency subdivision. Options such as
+`{ rounding: 'down', scale: 0 }` express a whole-major-unit business rule; they do
+not change the currency's subdivision. Fractional minor units never escape as Money.
+`compareScaledMoney` compares exact scaled capacities without premature settlement.
+`allocateMoney` offers Dinero's ratio-priority residual distribution or explicit
+`{ method: 'largestRemainder' }`, which breaks equal remainders in caller order.
+`{ method: 'ordered' }` assigns floored quotas and then distributes remaining minor
+units in caller order, skipping zero weights.
+`allocateMoneyByPercentages` rounds the combined percentage target once before
+assigning the residual units. Callers own stable business tie ordering and capacity
+saturation. Dimensionless ratio orchestration can use the exported `moneyCalculator`.
+
+Payment amount calculators emit `GcsPaymentAmountCalculatorResult` from
+`@gcs-ssc/extensions/ui`. Monetary results carry Money objects. Optional explanation
+ledgers carry extension-localized labels, formatted operand rows and arithmetic
+operators, a total and an optional short note. Calculators publish updated
+explanation text on locale changes without recalculating. Retained evidence stores
+currency-bearing Money values; it must never fill historical amounts from live data.
 
 Financial coding allocators declare `requiredHostCapabilities: ['coding-allocator']` and
 `codingAllocator: { path: './server/allocator.ts' }`. The server module exports a default
@@ -62,13 +118,13 @@ Configuration guards may also request `kind: 'commitment'` from their bound Agen
 catalogue service to validate remap source accounts.
 
 
-Finite JavaScript numbers remain accepted only for backwards compatibility. The host accepts them only when they round-trip to exact cents within the safe integer range. New extensions must not use numbers for money, and must not round, truncate, or convert money through `Number` before calling a host write contract.
+Never convert monetary amounts through JavaScript `Number`. Persist integer minor-unit text with its direct or immutable inherited currency; serialize Money objects at API and evidence boundaries.
 
 ## Agreement financial projections (SDK 0.3.13)
 
 Declare `agreement-payment-capacity` in `requiredHostCapabilities`. Authorized Agreement routes and host create-operation/payment-mutation hooks receive `agreementFinancials`. Require it with `requireGcsExtensionAgreementFinancials(context)` from the server entry point; call `getCommitmentPaymentCapacity({ fiscalYearId, commitmentTypeId, excludePaymentId? })`.
 
-The host binds this read to the canonical Agreement and its active database or write transaction. `fiscalYearId` is the stable Agreement budget fiscal-year ID; `commitmentTypeId` is the Agency commitment-type ID. An excluded Payment must belong to the bound Agreement. The result is `{ agreementId, capacityAmount }`, where capacity is canonical, exact, nonnegative decimal text. Aggregate capacity can exceed one persisted monetary row's range; consume it as an aggregate, never through `Number`.
+The host binds this read to the canonical Agreement and its active database or write transaction. `fiscalYearId` is the stable Agreement budget fiscal-year ID; `commitmentTypeId` is the Agency commitment-type ID. An excluded Payment must belong to the bound Agreement. The result is `{ agreementId, capacityAmount }`, where capacity is a canonical, exact, nonnegative Money object. Aggregate capacity can exceed one persisted monetary row's range; consume it as an aggregate, never through `Number`.
 
 `getCommitmentLinePaymentCoverage({ commitmentLineId, excludePaymentId? })` returns the canonical post-JV `paidAmount` for a line in the bound Agreement. `validatePaymentAllocations({ allocations: [{ commitmentLineId, amount }], excludePaymentId? })` validates proposed generated lines together, enforcing both exact-row limits and shared coding pools. Validate the batch inside the protected write transaction before inserting generated lines; individual duplicate-row ceilings cannot be summed.
 
@@ -84,7 +140,7 @@ for canonically resolved Agreement owners. Consumers check pending effects after
 and retain host financial validation rather than reconstructing balances from weights.
 
 
-`getPaymentCalculation({ fiscalYearId, commitmentTypeId, paymentType, periodStart, periodEnd, currency?, releaseHoldback?, holdbackReleaseAmount?, excludePaymentId? })` supplies exact financial inputs, not an entitlement or ceiling. The response contains `agreementId`, `currency`, `commitmentRemaining`, `totalClaimsToLastClaimMonth`, `totalForecastToLastClaimMonth`, `totalForecastToPeriodEnd`, `totalPaymentsToDate`, `totalCreditMemos`, `totalCreditMemosForReconciledPeriods`, `agreementTotal`, `finalFiscalYearTotal`, `availableForDisbursementBeforeHoldback`, `holdbackPercent`, and `holdbackBasis`. All monetary values are exact decimal strings. The host selects successful Claim reconciliations, applied Claim reductions, current budgets, the active Forecast record and its full monthly breakdown and shared coding capacity. Automated Payments owns entitlement, holdback, release and ceiling arithmetic; retain its calculated response as versioned extension-owned evidence.
+`getPaymentCalculation({ fiscalYearId, commitmentTypeId, paymentType, periodStart, periodEnd, currency?, releaseHoldback?, holdbackReleaseAmount?, excludePaymentId? })` supplies exact financial inputs, not an entitlement or ceiling. The response contains `agreementId`, `currency`, `commitmentRemaining`, `totalClaimsToLastClaimMonth`, `totalForecastToLastClaimMonth`, `totalForecastToPeriodEnd`, `totalPaymentsToDate`, `totalCreditMemos`, `totalCreditMemosForReconciledPeriods`, `agreementTotal`, `finalFiscalYearTotal`, `availableForDisbursementBeforeHoldback`, `holdbackPercent`, and `holdbackBasis`. All monetary values are currency-bearing Money objects; `holdbackPercent` remains dimensionless decimal text. The host selects successful Claim reconciliations, applied Claim reductions, current budgets, the active Forecast record and its full monthly breakdown and shared coding capacity. Automated Payments owns entitlement, holdback, release and ceiling arithmetic; retain its calculated response as versioned extension-owned evidence.
 
 `totalPaymentsToDate` includes cash plus signed JV and Correction effects through the selected period, excluding Credit Memo recovery. `totalCreditMemos` is positive posted linked recovery through the selected fiscal year, regardless of receipt month. The separate `totalCreditMemosForReconciledPeriods` contains only credits whose retained AR source period is successfully finally reconciled for that source Proponent. Claim-backed sources require final reconciliation of that exact Claim. Selecting an unreconciled period does not include its credits in this subtotal. Host availability uses total credits and is independent of that subtotal; consumers choose which credit input to subtract from paid and adjust raw availability for excluded credits before applying their calculation rules. Financial summaries retain receipt-month attribution. Consumers require SDK `^0.3.13` for this input contract.
 
@@ -92,7 +148,7 @@ Server route, create-operation and Payment mutation guard contexts expose `agenc
 
 Approved Credit Memo coding reduces recorded paid and Commitment usage only when it has a captured link to Commitment coding. Receivable principal alone has no paid effect. Claim reduction plans contribute only after full receivable clearance; original Claim and reconciliation evidence remain unchanged.
 
-`getRecordedPaidToDate({ fiscalYearId, periodEnd, currency?, excludePaymentId? })` supplies cumulative `cashPaidAmount`, `jvEffectAmount`, `correctionAmount`, signed `accountReceivableRecoveryAmount`, and `recordedPaidAmount`, plus `currency`. It also supplies positive `creditMemoAmount` through the selected fiscal year irrespective of month; this separate value must not be subtracted again from the already net `recordedPaidAmount`. Select a supported lowercase currency code to filter cash Payments, successful JVs, and posted Corrections before sums; an empty selected-currency result returns zero amounts with that currency. Currency must match the owning Agreement’s immutable denomination. Omitting currency derives that denomination, including when no accounting entries exist. `periodEnd` is the fiscal month index, April = 0 through March = 11. Earlier fiscal years contribute to cumulative totals. All amounts are exact decimal strings; protective per-line capacity floors never enter paid-to-date totals. Excluding a recalculated Payment removes its cash and JV effects while independent posted Corrections remain effective.
+`getRecordedPaidToDate({ fiscalYearId, periodEnd, currency?, excludePaymentId? })` supplies cumulative `cashPaidAmount`, `jvEffectAmount`, `correctionAmount`, signed `accountReceivableRecoveryAmount`, and `recordedPaidAmount`, plus `currency`. It also supplies positive `creditMemoAmount` through the selected fiscal year irrespective of month; this separate value must not be subtracted again from the already net `recordedPaidAmount`. Select a supported lowercase currency code to filter cash Payments, successful JVs, and posted Corrections before sums; an empty selected-currency result returns zero amounts with that currency. Currency must match the owning Agreement’s immutable denomination. Omitting currency derives that denomination, including when no accounting entries exist. `periodEnd` is the fiscal month index, April = 0 through March = 11. Earlier fiscal years contribute to cumulative totals. All amounts are currency-bearing Money objects; protective per-line capacity floors never enter paid-to-date totals. Excluding a recalculated Payment removes its cash and JV effects while independent posted Corrections remain effective.
 
 `getPaidAccountingProjection({ excludePaymentId?, paymentMode? })` returns retained accounting entries identified as `cash_payment`, `journal_voucher`, `correction`, or `account_receivable_recovery`, with currency, stable Agreement fiscal year, Agency fiscal year, period and exact amount. `account_receivable_recovery` identifies approved linked Credit Memo effects. `paymentMode: 'finalized'` excludes denied and unresolved outcomes while retaining supported historical terminal Payments without Completion evidence. The default preserves active Payment reservations for payment calculations. Only successfully posted Corrections contribute in either mode; fiscal closing switches do not govern Corrections. The host selects the owning Agreement’s denomination before extracting entries; invalid imported rows in another currency do not enter its totals.
 
@@ -276,7 +332,7 @@ fileStorageProvider: {
 }
 ```
 
-The validator is defined with `defineGcsFileStorageMetadataValidator`. It receives JSON object metadata plus create/update mode, agency, purpose, target, contract version, and agency configuration, and returns normalized JSON. Provider-managed editable metadata additionally requires `readProviderMetadata` and `updateProviderMetadata` on a `GcsFileStorageProviderManagedMetadataAdapter`.
+The validator is defined with `defineGcsFileStorageMetadataValidator`. It receives JSON object metadata plus create/update mode, agency, purpose, target, contract version, and agency configuration, and returns normalized JSON. Provider-managed editable metadata additionally requires `readProviderMetadata` and `updateProviderMetadata` on a `GcsFileStorageProviderManagedMetadataAdapter`. An update promise must settle only after no effects from that call can apply later; an abort signal requests cancellation but does not prove a remote operation stopped. The host rejects further metadata edits while a failed operation requires restoration, and retains a durable fence after a timeout until the provider promise settles. Process loss during an uncertain mutation requires operator reconciliation before that fence can be cleared. Providers that cannot establish operation completion should use host-managed editable metadata instead.
 
 The Vue form implements `GcsFileStorageMetadataComponentProps` and emits `update:modelValue` with a JSON object. Its props include create/update mode, the typed target context, `disabled`, and `readOnly`. Provider metadata is namespaced to its provider and size-bounded by the host. It cannot replace or override attachment type, business target, agency ownership, filename, MIME type, or authorization fields.
 

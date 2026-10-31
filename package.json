@@ -45,6 +45,10 @@
     "./nuxt": {
       "types": "./dist/nuxt.d.ts",
       "import": "./dist/nuxt.js"
+    },
+    "./money": {
+      "types": "./dist/money.d.ts",
+      "import": "./dist/money.js"
     }
   },
   "peerDependencies": {
@@ -63,5 +67,8 @@
     "vitest": "^4.1.12",
     "vue": "^3.5.28",
     "zod": "^4.3.6"
+  },
+  "dependencies": {
+    "dinero.js": "2.0.2"
   }
 }

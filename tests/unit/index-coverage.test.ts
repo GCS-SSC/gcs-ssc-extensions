@@ -2,16 +2,28 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   defineGcsExtension,
+  GCS_EXTENSION_CLAIM_FIELDS,
   GCS_EXTENSION_ENTITIES,
   FetchResponseError,
   getClientRequestUrl,
   throwFetchResponseError
 } from '../../src'
+import { parseMoney } from '../../src/money'
+import type { GcsExtensionMoneyInput } from '../../src/server'
 
 describe('extension SDK fetch errors and manifest identity', () => {
   it('exposes the independently assigned Data Collection as a bilingual core entity', () => {
     expect(GCS_EXTENSION_ENTITIES.find(entity => entity.type === 'commondatacollection'))
       .toEqual({ type: 'commondatacollection', label: { en: 'Data Collections', fr: 'Collectes de données' } })
+  })
+  it('describes submitted Claim amounts as currency-bearing minor-unit money', () => {
+    const field = GCS_EXTENSION_CLAIM_FIELDS.find(field => field.key === 'egcs_fc_amount')
+    expect(field).toMatchObject({ collection: 'submitted_line_items', required: true, valueType: 'money' })
+    const amount: GcsExtensionMoneyInput = parseMoney({ amount: '1234', currency: 'KWD' })
+    expect(amount).toEqual({ amount: '1234', currency: 'KWD' })
+    expect(() => parseMoney(1.234)).toThrow()
+    expect(() => parseMoney('1.234')).toThrow()
+    expect(GCS_EXTENSION_CLAIM_FIELDS.find(field => field.key === 'egcs_fc_periodend')?.valueType).toBe('number')
   })
   afterEach(() => {
     delete (globalThis as { window?: unknown }).window

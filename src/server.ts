@@ -1,3 +1,4 @@
+import type { Money } from './money.js'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { getHeader, isEvent, type H3Event } from 'h3'
@@ -91,6 +92,11 @@ export interface GcsFileStorageProviderManagedMetadataAdapter extends GcsFileSto
   readProviderMetadata: (
     context: GcsFileStorageProviderMetadataContext
   ) => Promise<GcsFileStorageJsonObject>
+  /**
+   * Settle only once no effects from this call can apply later. An abort signal is
+   * a cancellation request, not proof that a remote mutation has stopped.
+   * The host fences further metadata edits while this promise is unsettled.
+   */
   updateProviderMetadata: (
     input: GcsFileStorageUpdateProviderMetadataInput
   ) => Promise<void>
@@ -806,19 +812,8 @@ export interface GcsExtensionAuthContext {
   }
 }
 
-/**
- * Money accepted at an extension-to-host write boundary.
- *
- * Canonical decimal text is authoritative and is required for values outside the
- * exact JavaScript-number compatibility range. It uses plain decimal notation
- * with no exponent and at most two fractional digits; the host canonicalizes it
- * to two fractional digits and enforces its persisted money range.
- *
- * Finite numbers remain accepted for backwards compatibility only. They must
- * round-trip to exact cents within `Number.MAX_SAFE_INTEGER`; new extension code
- * should send canonical decimal text instead.
- */
-export type GcsExtensionMoneyInput = string | number
+/** Currency-bearing integer minor-unit amount accepted at extension-to-host boundaries. */
+export type GcsExtensionMoneyInput = Money
 
 export interface GcsExtensionAgreementClaimLineItemCreateInput {
   budgetLineItemId: string | null
@@ -826,7 +821,7 @@ export interface GcsExtensionAgreementClaimLineItemCreateInput {
   submittedCostSubsection: string | null
   submittedLineItem: string | null
   description: string
-  /** Exact Claim line amount. Canonical decimal text is authoritative; numbers are deprecated compatibility input. */
+  /** Exact Claim line amount in currency-bearing integer minor units. */
   amount: GcsExtensionMoneyInput
   currency: string
 }
@@ -1045,7 +1040,7 @@ export interface GcsExtensionPaymentCalculationInput {
   periodStart: number
   periodEnd: number
   releaseHoldback?: boolean
-  holdbackReleaseAmount?: string
+  holdbackReleaseAmount?: Money
   excludePaymentId?: string
 }
 
@@ -1053,19 +1048,19 @@ export interface GcsExtensionPaymentCalculationInput {
 export interface GcsExtensionPaymentCalculationResult {
   agreementId: string
   currency: string
-  commitmentRemaining: string
-  totalClaimsToLastClaimMonth: string
-  totalForecastToLastClaimMonth: string
-  totalForecastToPeriodEnd: string
+  commitmentRemaining: Money
+  totalClaimsToLastClaimMonth: Money
+  totalForecastToLastClaimMonth: Money
+  totalForecastToPeriodEnd: Money
   /** Cash plus signed JV/Correction effects through the selected period, excluding Credit Memos. */
-  totalPaymentsToDate: string
+  totalPaymentsToDate: Money
   /** Positive posted linked Credit Memo recovery through the selected fiscal year, regardless of collection month. */
-  totalCreditMemos: string
+  totalCreditMemos: Money
   /** Posted linked credits attributable to finally reconciled source periods through the selected end. */
-  totalCreditMemosForReconciledPeriods: string
-  agreementTotal: string
-  finalFiscalYearTotal: string
-  availableForDisbursementBeforeHoldback: string
+  totalCreditMemosForReconciledPeriods: Money
+  agreementTotal: Money
+  finalFiscalYearTotal: Money
+  availableForDisbursementBeforeHoldback: Money
   holdbackPercent: string
   holdbackBasis: 'fullagreement' | 'finalfiscal'
 }
@@ -1074,35 +1069,35 @@ export interface GcsExtensionAgreementFinancials {
   /** Finalized effective paid by Agency coding key; unfinished funding effects block allocation. */
   getCostAllocationContext: (input?: { transaction?: Transaction<unknown> }) => Promise<{
     agreementId: string; hasPendingEffects: boolean
-    codingPaidAmounts: Array<{ agencyChartOfAccountId: string; agencyFiscalYearId: string; paidAmount: string; labelEn?: string; labelFr?: string; fiscalYearDisplay?: string }>
+    codingPaidAmounts: Array<{ agencyChartOfAccountId: string; agencyFiscalYearId: string; paidAmount: Money; labelEn?: string; labelFr?: string; fiscalYearDisplay?: string }>
   }>
   /** Host-owned exact financial inputs, bound to this authorized Agreement. */
   getPaymentCalculation: (input: GcsExtensionPaymentCalculationInput) => Promise<GcsExtensionPaymentCalculationResult>
   /** Actual period accounting and positive posted creditMemoAmount through the fiscal year, regardless of receipt month; denomination follows the Agreement. */
   getRecordedPaidToDate: (input: {
     fiscalYearId: string; periodEnd: number; excludePaymentId?: string; currency?: string
-  }) => Promise<{ agreementId: string; cashPaidAmount: string; jvEffectAmount: string;
-    correctionAmount: string; accountReceivableRecoveryAmount: string; creditMemoAmount: string; recordedPaidAmount: string; currency: string | null }>
+  }) => Promise<{ agreementId: string; cashPaidAmount: Money; jvEffectAmount: Money;
+    correctionAmount: Money; accountReceivableRecoveryAmount: Money; creditMemoAmount: Money; recordedPaidAmount: Money; currency: string | null }>
   /** Signed successful Credit Memo effects on approved Claim consumption in its original fiscal period. */
   getClaimRecoveryProjection: () => Promise<{ agreementId: string; entries: Array<{
-    claimLineId: string | null; fiscalYearOrder: string; month: number; currency: string; amount: string
+    claimLineId: string | null; fiscalYearOrder: string; month: number; currency: string; amount: Money
   }> }>
   /** Separately attributed cash, JV and effective Correction entries by fiscal year and month. */
   getPaidAccountingProjection: (input?: { excludePaymentId?: string }) => Promise<{
     agreementId: string
     entries: Array<{ id: string; kind: 'cash_payment' | 'journal_voucher' | 'correction' | 'account_receivable_recovery';
       agencyFiscalYearId: string; fiscalYearId: string; fiscalYearOrder: string; fiscalYearLabel: string;
-      month: number; currency: string; amount: string }>
+      month: number; currency: string; amount: Money }>
   }>
-  getCommitmentLinePaymentCoverage: (input: { commitmentLineId: string; excludePaymentId?: string; currency?: string }) => Promise<{ paidAmount: string }>
-  validatePaymentAllocations: (input: { allocations: Array<{ commitmentLineId: string; amount: string }>; excludePaymentId?: string; currency?: string }) => Promise<boolean>
+  getCommitmentLinePaymentCoverage: (input: { commitmentLineId: string; excludePaymentId?: string; currency?: string }) => Promise<{ paidAmount: Money }>
+  validatePaymentAllocations: (input: { allocations: Array<{ commitmentLineId: string; amount: Money }>; excludePaymentId?: string; currency?: string }) => Promise<boolean>
   /** Stable Agreement budget-year ID, Agency commitment-type ID, and optional same-Agreement Payment exclusion. */
   getCommitmentPaymentCapacity: (input: {
     fiscalYearId: string
     commitmentTypeId: string
     excludePaymentId?: string
     currency?: string
-  }) => Promise<{ agreementId: string; capacityAmount: string }>
+  }) => Promise<{ agreementId: string; capacityAmount: Money }>
 }
 
 /** Requires the declared `agreement-payment-capacity` capability without a local financial fallback. */
@@ -2334,7 +2329,7 @@ export interface GcsCodingAllocatorContext {
   agreementId: string
   agencyId: string
   streamId: string
-  amount: string
+  amount: Money
   currency: string
   /** Retained extension policy for amount-only edits. */
   retainedPolicy?: JsonValue
@@ -2342,18 +2337,18 @@ export interface GcsCodingAllocatorContext {
   codingLines: GcsCodingAllocationCatalogLine[]
   /** Complete stream-selected commitment catalog, also supplied for Receivable/Credit Memo outputs. */
   commitmentCodingLines: GcsCodingAllocationCatalogLine[]
-  existingLines: Array<{ id: string; codingLineId: string; amount: string; paidAmount: string }>
+  existingLines: Array<{ id: string; codingLineId: string; amount: Money; paidAmount: Money }>
   /** Aggregate minimum by coding key, including successful incoming shared adjustments. */
-  codingPaidFloors: Array<{ codingLineId: string; paidAmount: string }>
+  codingPaidFloors: Array<{ codingLineId: string; paidAmount: Money }>
   /** Payment capacity per coding key, counted once across duplicate rows; empty for other outputs. */
-  codingAvailableAmounts: Array<{ codingLineId: string; amount: string }>
+  codingAvailableAmounts: Array<{ codingLineId: string; amount: Money }>
   config: GcsExtensionJsonConfig
   agencyConfig: GcsExtensionJsonConfig
 }
 
-/** Allocators return exact decimal money, or null for manual coding; the host owns validation and persistence. */
-export type GcsCodingAllocationResult = Array<{ codingLineId: string; amount: string }>
-  | { lines: Array<{ codingLineId: string; amount: string }>; policy: JsonValue }
+/** Allocators return currency-bearing minor-unit money, or null for manual coding; the host owns validation and persistence. */
+export type GcsCodingAllocationResult = Array<{ codingLineId: string; amount: Money }>
+  | { lines: Array<{ codingLineId: string; amount: Money }>; policy: JsonValue }
 
 export type GcsCodingAllocator = (context: GcsCodingAllocatorContext) =>
   Promise<GcsCodingAllocationResult | null> | GcsCodingAllocationResult | null

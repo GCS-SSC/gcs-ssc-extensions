@@ -179,7 +179,7 @@ export interface GcsExtensionEntityFieldDefinition {
   label: GcsExtensionBilingualLabel
   required: boolean
   collection?: string
-  valueType: 'string' | 'number' | 'date' | 'boolean' | 'json'
+  valueType: 'string' | 'number' | 'money' | 'date' | 'boolean' | 'json'
 }
 
 export type GcsExtensionCreateOperation =
@@ -424,7 +424,7 @@ export const GCS_EXTENSION_CLAIM_FIELDS: GcsExtensionEntityFieldDefinition[] = [
     label: { en: 'Submitted amount', fr: 'Montant soumis' },
     required: true,
     collection: 'submitted_line_items',
-    valueType: 'number'
+    valueType: 'money'
   }
 ]
 
