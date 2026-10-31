@@ -18,6 +18,7 @@ import {
   defineGcsFileStorageMetadataValidator,
   defineGcsFileStorageProviderAdapter,
   GCS_FILE_STORAGE_PROVIDER_OBJECT_ID_MAX_BYTES,
+  GCS_REQUEST_BODY_MAX_BYTES,
   GCS_EXTENSION_AGREEMENT_DELETE_GUARD_HOOK,
   GCS_EXTENSION_AGREEMENT_LIFECYCLE_LOCK_HOOK,
   GCS_EXTENSION_AGREEMENT_STREAM_CHANGE_GUARD_HOOK,
@@ -365,6 +366,23 @@ describe('extension SDK server helpers', () => {
     event.context.auditRequestInputsRestricted = true
     expect(await readGcsExtensionRequestBody(event)).toEqual(first)
     expect(event.context.auditRequestBody).toEqual({ state: 'restricted' })
+  })
+
+  it.each(['declared', 'chunked'])('rejects oversized %s bodies before audit capture', async mode => {
+    const request = new IncomingMessage(new Socket())
+    request.method = 'POST'
+    request.headers = {
+      'content-type': 'application/json',
+      ...(mode === 'declared'
+        ? { 'content-length': String(GCS_REQUEST_BODY_MAX_BYTES + 1) }
+        : { 'transfer-encoding': 'chunked' })
+    }
+    request.push('x'.repeat(GCS_REQUEST_BODY_MAX_BYTES + 1))
+    request.push(null)
+    const event = createEvent(request, new ServerResponse(request))
+    await expect(readGcsExtensionRequestBody(event)).rejects.toMatchObject({ statusCode: 413 })
+    await expect(readGcsExtensionRequestBody(event)).rejects.toMatchObject({ statusCode: 413 })
+    expect(event.context).not.toHaveProperty('auditRequestBody')
   })
 
   it('publishes Agency configuration separately from stream configuration', () => {

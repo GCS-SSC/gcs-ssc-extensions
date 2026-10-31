@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { getHeader, isEvent, readBody, readRawBody, type H3Event } from 'h3'
+import { getHeader, isEvent, type H3Event } from 'h3'
+import { readBoundedRequestBody } from './request-body.js'
 import { sql, type Generated, type Kysely, type Migration, type Transaction } from 'kysely'
 import type {
   ExtensionEntityTabContext,
@@ -20,6 +21,7 @@ import type {
 
 export type { ExtensionEntityOwnerType, ExtensionEntityTabContext, ExtensionScope } from './index.js'
 export type { GcsFileStoragePurpose, GcsFileStorageTarget } from './index.js'
+export { GCS_REQUEST_BODY_MAX_BYTES } from './request-body.js'
 
 export type GcsExtensionMigration = Migration
 
@@ -1184,9 +1186,9 @@ export const defineGcsExtensionRouteHandler = <T>(
 ): GcsExtensionRawRouteHandler<T> =>
   async (event: GcsExtensionRouteEvent) => await handler(createGcsExtensionRouteContext(event))
 
-const requireHostH3Event = (
-  eventOrContext: GcsExtensionRouteEvent | GcsExtensionRouteContext
-): H3Event => {
+type GcsExtensionRequestInput = { context: object } | { event: { context: object } }
+
+const requireHostH3Event = (eventOrContext: GcsExtensionRequestInput): H3Event => {
   const event = 'event' in eventOrContext ? eventOrContext.event : eventOrContext
   if (!isEvent(event)) {
     throw new TypeError('GCS extension request helpers require a host H3 event.')
@@ -1199,20 +1201,20 @@ const requireHostH3Event = (
  * Reads the request body from either a host event or an extension route context.
  */
 export const readGcsExtensionRequestBody = async <T = unknown>(
-  eventOrContext: GcsExtensionRouteEvent | GcsExtensionRouteContext
+  eventOrContext: GcsExtensionRequestInput
 ): Promise<T> => {
   const event = requireHostH3Event(eventOrContext)
-  const body = await readBody<T>(event)
-  const raw = getHeader(event, 'content-type')?.includes('json') ? await readRawBody(event) : undefined
+  const { body, raw: rawBody } = await readBoundedRequestBody(event)
+  const raw = getHeader(event, 'content-type')?.includes('json') ? rawBody : undefined
   event.context.auditRequestBody = event.context.auditRequestInputsRestricted === true ? { state: 'restricted' } : raw ?? body
-  return body
+  return body as T
 }
 
 /**
  * Reads a request header from either a host event or an extension route context.
  */
 export const getGcsExtensionRequestHeader = (
-  eventOrContext: GcsExtensionRouteEvent | GcsExtensionRouteContext,
+  eventOrContext: GcsExtensionRequestInput,
   name: string
 ): string | undefined => getHeader(requireHostH3Event(eventOrContext), name)
 
