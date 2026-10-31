@@ -107,7 +107,7 @@ Use the published or tagged SDK dependency from standalone extension packages:
 ```json
 {
   "dependencies": {
-    "@gcs-ssc/extensions": "^0.3.0"
+    "@gcs-ssc/extensions": "^0.4.0"
   }
 }
 ```
@@ -220,7 +220,7 @@ import { defineGcsExtension } from '@gcs-ssc/extensions'
 
 export default defineGcsExtension({
   key: 'gcs-storage-example',
-  sdkVersion: '^0.3.0',
+  sdkVersion: '^0.4.0',
   requiredHostCapabilities: ['file-storage-provider'],
   name: { en: 'Example storage', fr: 'Stockage exemple' },
   fileStorageProvider: {
@@ -359,7 +359,7 @@ Extensions can add tabs to funding case agreements, proponents, claims, and moni
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.3.0',
+  sdkVersion: '^0.4.0',
   requiredHostCapabilities: ['server-handlers', 'server-handler-rbac'],
   name: { en: 'Example', fr: 'Exemple' },
   client: {
@@ -386,7 +386,7 @@ Extensions can add inline fields to host-owned agreement profile sections throug
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.3.0',
+  sdkVersion: '^0.4.0',
   requiredHostCapabilities: ['textarea-slots', 'extension-ui'],
   name: { en: 'Example', fr: 'Exemple' },
   client: {
@@ -425,7 +425,7 @@ Extensions can also opt server routes into host RBAC:
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.3.0',
+  sdkVersion: '^0.4.0',
   requiredHostCapabilities: ['server-handlers', 'server-handler-rbac'],
   name: { en: 'Example', fr: 'Exemple' },
   serverHandlers: [
@@ -475,7 +475,7 @@ Extensions can add or replace the create actions on agreement commitments and pa
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.3.0',
+  sdkVersion: '^0.4.0',
   requiredHostCapabilities: ['create-actions', 'extension-ui', 'extension-lifecycle-hooks'],
   name: { en: 'Example', fr: 'Exemple' },
   client: {
@@ -671,7 +671,7 @@ Extensions may declare explicit Kysely migration files in `extension.config.ts`:
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.3.0',
+  sdkVersion: '^0.4.0',
   requiredHostCapabilities: ['migrations'],
   name: { en: 'Example', fr: 'Exemple' },
   migrations: [
@@ -708,7 +708,7 @@ Business entities that participate in host Completion and Workflow orchestration
 ```ts
 export default defineGcsExtension({
   key: 'gcs-example',
-  sdkVersion: '^0.3.0',
+  sdkVersion: '^0.4.0',
   requiredHostCapabilities: ['lifecycle-entities', 'migrations'],
   name: { en: 'Example', fr: 'Exemple' },
   entities: [{
@@ -1216,10 +1216,25 @@ check uses no workspace aliases or Bun module resolution. Run it before publishi
 an SDK release. SDK 0.3.21 fixes explicit JavaScript paths in runtime and declaration
 imports for native Node ESM consumers.
 
-`ExtensionResourceLayoutPage` delegates to the host's existing
-`CommonResourceLayoutPage`, the same main-page table template used by Agreements.
-It passes through table data, columns, search and pagination models, toolbar options,
-events, and scoped row slots. `ExtensionResourceLayoutCard` remains available for
-embedded card tables. The standalone testing runtime supplies row and named-slot
-rendering for the page wrapper; `test:package` verifies those bindings through the
-packed public UI and testing entrypoints.
+`ExtensionResourceLayout` delegates to the host's `CommonResourceLayout`, the
+collection table used by Agreements and embedded reference catalogs. Set
+`layout="page"` for the scrolling main-page presentation; the default `card`
+presentation supports embedded collections. Both presentations pass through table
+data, columns, search and pagination models, toolbar options, events and scoped
+row slots. The standalone testing runtime renders rows and named slots;
+`test:package` verifies those bindings through the packed public entrypoints.
+
+`ExtensionTranslatedTabs` delegates to `CommonTranslatedTabs`. Its default
+`ordering="authored"` preserves supplied item order. Set `ordering="localized"`
+for locale-aware ordering with General first, and use `priority-values` for an
+explicit leading sequence. The host owns desktop/mobile interaction and focus;
+extensions retain their URL-section state and localized labels.
+
+## Component API cutover (SDK 0.4.0)
+
+SDK 0.4.0 replaces the separate card/page resource wrappers with
+`ExtensionResourceLayout` and route-tab forwarding with
+`ExtensionTranslatedTabs`. Migrate imports and callers together; no legacy
+exports or host runtime aliases remain. Extensions using this release declare
+`sdkVersion: '^0.4.0'` and depend on `@gcs-ssc/extensions` `^0.4.0`. Publish the SDK
+candidate before publishing independently versioned extension consumers.

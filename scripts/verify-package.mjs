@@ -29,13 +29,13 @@ try {
   await writeFile(smokePath, `
 import { createSSRApp, h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
-import { ExtensionResourceLayoutPage, clearExtensionUiRuntime } from '@gcs-ssc/extensions/ui'
+import { ExtensionResourceLayout, clearExtensionUiRuntime } from '@gcs-ssc/extensions/ui'
 import { installExtensionTestUiRuntime } from '@gcs-ssc/extensions/testing'
 for (const specifier of ${JSON.stringify(specifiers)}) await import(specifier)
 installExtensionTestUiRuntime()
 try {
-  const html = await renderToString(createSSRApp({ render: () => h(ExtensionResourceLayoutPage, {
-    data: [{ id: 'template-1', name: 'Approval template' }],
+  const html = await renderToString(createSSRApp({ render: () => h(ExtensionResourceLayout, {
+    layout: 'page', data: [{ id: 'template-1', name: 'Approval template' }],
     columns: [{ accessorKey: 'name', header: 'Template' }, { id: 'actions', header: 'Actions' }],
     pagination: { pageIndex: 0, pageSize: 10 }, showButton: false
   }, { 'actions-cell': ({ row }) => h('button', { 'data-template': row.original.id }, 'Edit mapping') }) }))

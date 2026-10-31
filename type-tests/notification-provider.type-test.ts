@@ -11,7 +11,7 @@ import {
 defineGcsExtension({
   key: 'notification-fixture',
   name: { en: 'Notifications', fr: 'Notifications' },
-  sdkVersion: '^0.3.0',
+  sdkVersion: '^0.4.0',
   configurationAccess: 'manager',
   requiredHostCapabilities: ['notification-provider', 'configuration-access'],
   notificationProvider: { adapter: { path: './server/provider.ts' } }

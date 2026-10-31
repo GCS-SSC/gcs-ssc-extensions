@@ -206,7 +206,7 @@ const createExtensionTestComponent = (name: GcsExtensionHostComponentName): Comp
     })
   }
 
-  if (name === 'CommonCompactTable' || name === 'CommonResourceLayoutPage') {
+  if (name === 'CommonCompactTable' || name === 'CommonResourceLayout') {
     return defineComponent({
       name,
       inheritAttrs: false,
@@ -291,9 +291,8 @@ const hostComponentNames: GcsExtensionHostComponentName[] = [
   'CommonCurrencyInput',
   'CommonFlowDiagram',
   'CommonPaymentCalculationBreakdown',
-  'CommonResourceLayoutCard',
-  'CommonResourceLayoutPage',
-  'CommonRouteTabs',
+  'CommonResourceLayout',
+  'CommonTranslatedTabs',
   'CommonSaveButton',
   'CommonSection',
   'CommonStatusBadge',

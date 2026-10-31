@@ -104,9 +104,8 @@ export type GcsExtensionHostComponentName =
   | 'CommonCurrencyInput'
   | 'CommonFlowDiagram'
   | 'CommonPaymentCalculationBreakdown'
-  | 'CommonResourceLayoutCard'
-  | 'CommonResourceLayoutPage'
-  | 'CommonRouteTabs'
+  | 'CommonResourceLayout'
+  | 'CommonTranslatedTabs'
   | 'CommonSaveButton'
   | 'CommonSection'
   | 'CommonStatusBadge'
@@ -322,9 +321,8 @@ export interface GcsExtensionSelectableTableProps<Item extends { id: string | nu
   onSelect?: (item: Item) => void
 }
 export const ExtensionSelectableTable = createExtensionHostComponent<GcsExtensionSelectableTableProps<any>>('CommonSelectableTable')
-export const ExtensionResourceLayoutPage = createExtensionHostComponent('CommonResourceLayoutPage')
-export const ExtensionResourceLayoutCard = createExtensionHostComponent('CommonResourceLayoutCard')
-export const ExtensionRouteTabs = createExtensionHostComponent('CommonRouteTabs')
+export const ExtensionResourceLayout = createExtensionHostComponent('CommonResourceLayout')
+export const ExtensionTranslatedTabs = createExtensionHostComponent('CommonTranslatedTabs')
 export const ExtensionSaveButton = createExtensionHostComponent('CommonSaveButton')
 export const ExtensionSection = createExtensionHostComponent('CommonSection')
 export const ExtensionStatusBadge = createExtensionHostComponent('CommonStatusBadge')

@@ -12,7 +12,8 @@ import {
   ExtensionAssessmentSchemaPageSection,
   ExtensionCompletionSection,
   ExtensionCompletionPanel,
-  ExtensionResourceLayoutPage,
+  ExtensionResourceLayout,
+  ExtensionTranslatedTabs,
   ExtensionDetailPage,
   ExtensionDetailWorkspace,
   ExtensionCompactTable,
@@ -214,20 +215,34 @@ describe('extension SDK UI runtime adapters', () => {
     clearExtensionUiRuntime()
   })
 
-  it('forwards page-table data, model events and named row slots to the existing host page template', () => {
+  it.each(['card', 'page'] as const)('forwards %s table data, model events and named row slots to the host template', layout => {
     const runtime = createExtensionTestUiRuntime()
     setExtensionUiRuntime(runtime)
     const attrs = {
-      data: [{ id: 'template-1' }], columns: [{ id: 'actions' }],
+      layout, data: [{ id: 'template-1' }], columns: [{ id: 'actions' }],
       pagination: { pageIndex: 0, pageSize: 10 }, search: '', showButton: false,
       'onUpdate:pagination': vi.fn(), 'onUpdate:search': vi.fn(), onRetry: vi.fn()
     }
     const slots = { 'actions-cell': vi.fn(() => 'Edit'), empty: vi.fn(() => 'No templates') }
-    const render = (ExtensionResourceLayoutPage as { setup: Function }).setup({}, { attrs, slots }) as () => { type: unknown; props: unknown; children: unknown }
+    const render = (ExtensionResourceLayout as { setup: Function }).setup({}, { attrs, slots }) as () => { type: unknown; props: unknown; children: unknown }
     const vnode = render()
-    expect(vnode.type).toBe(runtime.components.CommonResourceLayoutPage)
+    expect(vnode.type).toBe(runtime.components.CommonResourceLayout)
     expect(vnode.props).toEqual(attrs)
     expect(vnode.children).toMatchObject(slots)
+  })
+
+  it('forwards authored/localized navigation choices and external panel association', () => {
+    const runtime = createExtensionTestUiRuntime()
+    setExtensionUiRuntime(runtime)
+    for (const ordering of ['authored', 'localized']) {
+      const attrs = { ordering, priorityValues: ['edit', 'test'], externalPanelId: 'editor-panel', modelValue: 'edit', 'onUpdate:modelValue': vi.fn() }
+      const slots = { default: vi.fn() }
+      const render = (ExtensionTranslatedTabs as { setup: Function }).setup({}, { attrs, slots }) as () => { type: unknown; props: unknown; children: unknown }
+      const vnode = render()
+      expect(vnode.type).toBe(runtime.components.CommonTranslatedTabs)
+      expect(vnode.props).toEqual(attrs)
+      expect(vnode.children).toMatchObject(slots)
+    }
   })
 
   it('forwards extension record shells and literal completion labels through the host runtime', () => {

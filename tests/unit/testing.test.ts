@@ -39,7 +39,7 @@ describe('extension SDK testing runtime', () => {
     expect(h(runtime.components.UTable)).toBeTruthy()
   })
 
-  it.each(['CommonCompactTable', 'CommonResourceLayoutPage'] as const)('renders %s headers, data, named row slots and empty content', componentName => {
+  it.each(['CommonCompactTable', 'CommonResourceLayout'] as const)('renders %s headers, data, named row slots and empty content', componentName => {
     const runtime = createExtensionTestUiRuntime()
     const actions = vi.fn(() => h('button', 'Edit'))
     const columns = [{ accessorKey: 'name', header: 'Name' }, { id: 'actions', header: 'Actions' }]
