@@ -435,7 +435,7 @@ export default defineGcsExtension({
 
 Tab paths are validated by the host scanner and must stay inside the extension package. Component definitions declare only their package-contained `path`; the host generates the runtime `componentName`, and extension authors cannot override it. Tab ids are lowercase kebab-case and must be unique per extension target.
 
-The host shows tabs only when the extension is enabled for the selected agency, stream-scoped entities are enabled for the transfer payment stream, and the current user passes the declared RBAC check. Proponent tabs use an explicit active agency context checked against the user's grant; the Proponent's tracking lead agency does not select that context.
+For targets with an owning Agency, tabs require extension enablement for that Agency and the declared RBAC check. Stream-scoped targets also require Stream enablement. Proponent tabs receive one app-wide context with host-authorized, enabled `agencies` and each Agency's configuration. The public Proponent context has no singular `agencyId` or `scope`. The Proponent's tracking lead agency does not select the contribution.
 
 Extensions can add inline fields to host-owned agreement profile sections through `client.slots`. For agreement risk data, use `agreement.profile.risk-management.fields`; the host owns the standard holdback, holdback basis, and risk score fields, and extension fields render inside the same Risk Management section.
 

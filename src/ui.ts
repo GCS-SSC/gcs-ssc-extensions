@@ -301,6 +301,7 @@ export interface GcsExtensionCompletionLabels {
   confirmationMessage?: string
 }
 export interface GcsExtensionCompletionPanelProps {
+  mutationRoleAllowed: boolean
   entityType: string
   entityId: string
   canComplete: boolean
@@ -337,6 +338,7 @@ export interface GcsExtensionStreamWorkflowLinksProps {
 }
 export const ExtensionStreamWorkflowLinks = createExtensionHostComponent<GcsExtensionStreamWorkflowLinksProps>('CommonStreamWorkflowLinks')
 export interface GcsExtensionWorkflowSectionProps {
+  mutationRoleAllowed: boolean
   entityType: string
   entityId: string
   canEdit?: boolean

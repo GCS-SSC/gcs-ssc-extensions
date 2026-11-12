@@ -40,6 +40,8 @@ import {
 import type {
   FlowDiagramDefinition,
   GcsExtensionFetchResult,
+  GcsExtensionCompletionPanelProps,
+  GcsExtensionWorkflowSectionProps,
   GcsExtensionSelectableTableProps,
   GcsExtensionSupplementaryInformationSectionProps,
   GcsGroupedTableExpandedState,
@@ -243,6 +245,26 @@ describe('extension SDK UI runtime adapters', () => {
       expect(vnode.props).toEqual(attrs)
       expect(vnode.children).toMatchObject(slots)
     }
+  })
+
+  it('requires and forwards the workflow role boundary as a public Boolean', () => {
+    expectTypeOf<GcsExtensionWorkflowSectionProps>().toExtend<{ mutationRoleAllowed: boolean }>()
+    expectTypeOf<GcsExtensionCompletionPanelProps>().toExtend<{ mutationRoleAllowed: boolean }>()
+    const runtime = createExtensionTestUiRuntime()
+    setExtensionUiRuntime(runtime)
+    for (const [wrapper, host] of [
+      [ExtensionWorkflowSection, runtime.components.CommonWorkflowSection],
+      [ExtensionCompletionPanel, runtime.components.CommonCompletionPanel]
+    ] as const) {
+      for (const mutationRoleAllowed of [true, false]) {
+        const attrs = { entityType: 'fixture:record', entityId: '42', mutationRoleAllowed }
+        const render = (wrapper as { setup: Function }).setup({}, { attrs, slots: {} }) as () => { type: unknown; props: unknown }
+        const vnode = render()
+        expect(vnode.type).toBe(host)
+        expect(vnode.props).toEqual(attrs)
+      }
+    }
+    clearExtensionUiRuntime()
   })
 
   it('forwards extension record shells and literal completion labels through the host runtime', () => {
