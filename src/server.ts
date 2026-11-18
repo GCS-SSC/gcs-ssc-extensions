@@ -851,6 +851,7 @@ export type GcsExtensionAgreementClaimCreateResult =
   | {
       status:
         | 'agreement_unavailable'
+        | 'initial_approval_required'
         | 'fiscal_year_unavailable'
         | 'applicant_recipient_unavailable'
         | 'requested_status_unavailable'
