@@ -2305,6 +2305,39 @@ export interface GcsAgreementNumberProviderContext {
 }
 export type GcsAgreementNumberProvider = (context: GcsAgreementNumberProviderContext) => Promise<string>
 
+/** Finalized Data Collection answers from the current approval run. */
+export interface GcsAgreementFinancialNumberCollection {
+  readonly runtimeItemId: string
+  readonly setupId: string
+  readonly answers: unknown
+}
+
+export type GcsAgreementFinancialNumberContext = {
+  agencyId: string
+  streamId: string
+  agencyConfig: GcsExtensionJsonConfig
+  currentValue: string | null
+} & (
+  | { operation: 'create'; agreementId: null; submittedValue?: string | null }
+  | { operation: 'edit'; agreementId: string; submittedValue?: string | null }
+  | {
+    operation: 'approval'
+    agreementId: string
+    readFinalizedAnswers: () => Promise<readonly GcsAgreementFinancialNumberCollection[]>
+  }
+)
+
+export interface GcsAgreementFinancialNumberPolicy {
+  required: boolean
+  readOnly: boolean
+  /** Omit to use an eligible user input or retain the saved value. Null clears the field. */
+  value?: string | null
+}
+
+export type GcsAgreementFinancialNumberProvider = (
+  context: GcsAgreementFinancialNumberContext
+) => GcsAgreementFinancialNumberPolicy | Promise<GcsAgreementFinancialNumberPolicy>
+
 /** Financial output type; commitment types are user-defined stream catalog identities. */
 export type GcsCodingAllocationOutput =
   | { kind: 'commitment'; commitmentTypeId: string; commitmentId?: string }

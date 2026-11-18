@@ -711,6 +711,7 @@ export type GcsExtensionHostCapability =
   | 'file-storage-provider'
   | 'notification-provider'
   | 'agreement-number-provider'
+  | 'agreement-financial-number-provider'
   | 'coding-allocator'
   | 'configuration-access'
   | 'scheduled-agreement-import'
@@ -775,6 +776,7 @@ export interface GcsExtensionDefinition {
   runtime?: GcsExtensionRuntimeResolverDefinition
   nitroPlugin?: string
   agreementNumberProvider?: { path: string }
+  agreementFinancialNumberProvider?: { path: string }
   /** Server allocator for host-created financial coding; the host validates and persists its result. */
   codingAllocator?: { path: string }
   notificationProvider?: GcsNotificationProviderDefinition
