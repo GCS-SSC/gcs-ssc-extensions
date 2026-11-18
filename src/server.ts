@@ -863,6 +863,7 @@ export interface GcsExtensionAgreementForecastLineItemCreateInput {
   budgetLineItemId: string
   month: number
   amount: GcsExtensionMoneyInput
+  totalAmount?: GcsExtensionMoneyInput
   currency: string
 }
 
@@ -878,6 +879,7 @@ export interface GcsExtensionAgreementForecastCreateInput {
 export type GcsExtensionAgreementForecastCreateResult =
   | { status: 'created'; forecastId: string; version: string; lineItemIds: string[]; draftStatusId: string }
   | { status: 'agreement_unavailable' | 'recipient_unavailable' | 'fiscal_year_unavailable' | 'draft_status_unavailable' }
+  | { status: 'total_cost_mismatch' | 'total_cost_hidden'; lineNumber: number }
 
 /** Immutable Portal application evidence for a group-queued host Intake. */
 export interface GcsExtensionFundingCaseIntakeCreateInput {
