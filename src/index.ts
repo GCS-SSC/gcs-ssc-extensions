@@ -625,6 +625,7 @@ export interface GcsExtensionServerHandlerDefinition {
         param: string
       }
     })
+    | (GcsExtensionRbacRequirement & { subject: 'system'; global: true })
 }
 
 export interface GcsExtensionRuntimeResolverDefinition {
@@ -719,6 +720,7 @@ export type GcsExtensionHostCapability =
   | 'scheduled-intake-import'
   | 'background-queue'
   | 'agency-only-configuration'
+  | 'system-extensions'
   | 'audit-ownership'
 
 /** Minimum host role for changing extension enablement or JSON configuration. */
@@ -742,9 +744,11 @@ export interface GcsExtensionAdminDefinition {
   }
   streamConfig?: GcsExtensionComponentDefinition
   streamConfigPage?: GcsExtensionComponentDefinition
+  /** Workspace available to System Managers while the system extension is enabled. */
+  systemWorkspace?: GcsExtensionComponentDefinition
 }
 
-/** A sidebar modal for active accounts. The component receives agencyId and its trigger slot. */
+/** A system extension's sidebar modal for active accounts. The component receives its trigger slot. */
 export interface GcsExtensionSignedInSidebarModal extends GcsExtensionComponentDefinition {
   label: GcsExtensionBilingualLabel
   icon: string
@@ -757,8 +761,8 @@ export interface GcsExtensionDefinition {
   key: string
   /** Defaults to Contributor; explicit values require the configuration-access capability. */
   configurationAccess?: GcsExtensionConfigurationAccess
-  /** Agency-only extensions have no stream enablement or configuration. */
-  configurationScope?: 'agency'
+  /** System extensions have one installation-wide toggle. Agency-only extensions have no stream settings. */
+  configurationScope?: 'agency' | 'system'
   sdkVersion: string
   requiredHostCapabilities: GcsExtensionHostCapability[]
   name: {
@@ -875,8 +879,7 @@ export interface GcsClientExtensionManifest {
   signedInSidebarModal?: Omit<GcsExtensionSignedInSidebarModal, 'path'> & { componentName: string }
   key: string
   configurationAccess?: GcsExtensionConfigurationAccess
-  /** Agency-only extensions have no stream enablement or configuration. */
-  configurationScope?: 'agency'
+  configurationScope?: GcsExtensionDefinition['configurationScope']
   name: {
     en: string
     fr: string
@@ -891,6 +894,7 @@ export interface GcsClientExtensionManifest {
     agencyWorkspace?: GcsExtensionAdminDefinition['agencyWorkspace']
     streamConfig?: GcsClientExtensionComponentDefinition
     streamConfigPage?: GcsClientExtensionComponentDefinition
+    systemWorkspace?: Omit<GcsExtensionComponentDefinition, 'path'> & { componentName: string }
   }
   client: {
     slots: GcsClientExtensionSlotDefinition[]

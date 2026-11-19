@@ -1297,13 +1297,22 @@ exports or host runtime aliases remain. Extensions using this release declare
 `sdkVersion: '^0.4.0'` and depend on `@gcs-ssc/extensions` `^0.4.0`. Publish the SDK
 candidate before publishing independently versioned extension consumers.
 
-### Signed-in sidebar modals
+### System extensions
 
-Declare `signedInSidebarModal` with a bilingual `label`, an `icon`, and a
-package-relative Vue component `path`. List `signed-in-sidebar-modal` and `extension-ui` in
-`requiredHostCapabilities`. The component receives the configured `agencyId`
-and the sidebar trigger in its default slot. Forward the slot to
-`ExtensionModal` to use the app’s modal, keyboard, and focus behavior.
+Set `configurationScope: 'system'` and list `system-extensions` in
+`requiredHostCapabilities`. System Contributors and Managers can enable the
+extension under **Administration → Extensions**. Declare an optional component
+at `admin.systemWorkspace.path` and list `extension-ui` to give System Managers
+a workspace while the extension is enabled.
 
-The host displays the trigger above the account menu for active accounts
-when the extension is enabled for the configured agency.
+For system routes with role checks, declare `global: true`, `subject: 'system'`,
+and the required action in `rbac`. The host checks system enablement and global
+authorization before invoking the handler. The handler receives the authorized
+global scope.
+
+To add a modal for active signed-in users, declare `signedInSidebarModal` with a
+bilingual `label`, an `icon`, and a package-relative Vue `path`. List
+`signed-in-sidebar-modal` and `extension-ui` in `requiredHostCapabilities`.
+The host adds the trigger above the account menu while the extension is enabled.
+The component receives the trigger in its default slot. Forward the slot to
+`ExtensionModal` to use the app's keyboard and focus behavior.

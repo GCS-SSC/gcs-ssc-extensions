@@ -137,6 +137,17 @@ describe('extension SDK server branch contracts', () => {
     })
   })
 
+  it('exposes the global scope supplied by system dispatch', async () => {
+    const handler = defineGcsExtensionRouteHandler(context => context.authorizedScope)
+    const event = {
+      context: {
+        $db: 'database',
+        gcsExtension: { config: {}, agencyConfig: {}, authorizedScope: { type: 'global' } }
+      }
+    } satisfies Parameters<typeof handler>[0]
+    await expect(handler(event)).resolves.toEqual({ type: 'global' })
+  })
+
   it('resolves a complete active stream context', async () => {
     const query = queryChain({ agency_id: 2, profile_id: 3 })
     const db = { selectFrom: vi.fn(() => query) }

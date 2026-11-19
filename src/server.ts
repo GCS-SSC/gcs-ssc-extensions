@@ -775,6 +775,7 @@ export interface GcsExtensionRouteEvent {
       extensionKey?: string
       config: GcsExtensionJsonConfig | unknown
       agencyConfig: GcsExtensionJsonConfig | unknown
+      authorizedScope?: Extract<ExtensionScope, { type: 'global' }>
       writeAuthorization?: GcsExtensionWriteAuthorization
       agreementFinancials?: GcsExtensionAgreementFinancials
       agreementAccess?: GcsExtensionAgreementAccess
@@ -1139,6 +1140,9 @@ export const createGcsExtensionRouteContext = (event: GcsExtensionRouteEvent): G
   }
   if (event.context.gcsExtension?.extensionKey) {
     context.extensionKey = event.context.gcsExtension.extensionKey
+  }
+  if (event.context.gcsExtension?.authorizedScope) {
+    context.authorizedScope = event.context.gcsExtension.authorizedScope
   }
   if (event.context.gcsExtension?.writeAuthorization) {
     context.writeAuthorization = event.context.gcsExtension.writeAuthorization
