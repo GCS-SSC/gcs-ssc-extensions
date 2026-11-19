@@ -685,6 +685,7 @@ export type GcsExtensionHostCapability =
   | 'agency-config'
   | 'agency-workspace'
   | 'agency-workspace-navigation'
+  | 'signed-in-sidebar-modal'
   | 'stream-config-modal'
   | 'stream-config-page'
   | 'entity-tabs'
@@ -743,7 +744,14 @@ export interface GcsExtensionAdminDefinition {
   streamConfigPage?: GcsExtensionComponentDefinition
 }
 
+/** A sidebar modal for active accounts. The component receives agencyId and its trigger slot. */
+export interface GcsExtensionSignedInSidebarModal extends GcsExtensionComponentDefinition {
+  label: GcsExtensionBilingualLabel
+  icon: string
+}
+
 export interface GcsExtensionDefinition {
+  signedInSidebarModal?: GcsExtensionSignedInSidebarModal
   /** Server-only table ownership declarations. Omitted extension tables are global. */
   auditOwnership?: GcsAuditTableOwnership[]
   key: string
@@ -864,6 +872,7 @@ export type GcsClientExtensionPaymentAmountCalculatorDefinition = Omit<GcsExtens
 }
 
 export interface GcsClientExtensionManifest {
+  signedInSidebarModal?: Omit<GcsExtensionSignedInSidebarModal, 'path'> & { componentName: string }
   key: string
   configurationAccess?: GcsExtensionConfigurationAccess
   /** Agency-only extensions have no stream enablement or configuration. */

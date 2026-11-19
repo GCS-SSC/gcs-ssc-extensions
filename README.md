@@ -1296,3 +1296,14 @@ SDK 0.4.0 replaces the separate card/page resource wrappers with
 exports or host runtime aliases remain. Extensions using this release declare
 `sdkVersion: '^0.4.0'` and depend on `@gcs-ssc/extensions` `^0.4.0`. Publish the SDK
 candidate before publishing independently versioned extension consumers.
+
+### Signed-in sidebar modals
+
+Declare `signedInSidebarModal` with a bilingual `label`, an `icon`, and a
+package-relative Vue component `path`. List `signed-in-sidebar-modal` and `extension-ui` in
+`requiredHostCapabilities`. The component receives the configured `agencyId`
+and the sidebar trigger in its default slot. Forward the slot to
+`ExtensionModal` to use the app’s modal, keyboard, and focus behavior.
+
+The host displays the trigger above the account menu for active accounts
+when the extension is enabled for the configured agency.
