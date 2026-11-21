@@ -18,7 +18,7 @@ import type {
   JsonValue
 } from './index.js'
 
-export type { FlowDiagramDefinition, FlowDiagramEdgeKind, FlowDiagramNode, FlowDiagramProps, FlowDiagramRoute } from './diagrams.js'
+export type { FlowDiagramDefinition, FlowDiagramEdgeKind, FlowDiagramNode, FlowDiagramProps, FlowDiagramRoute, WorkflowBpmnDefinition, WorkflowBpmnTask, WorkflowBpmnViewerProps } from './diagrams.js'
 
 export type GcsGroupedTableRow<Row> = {
   id: string

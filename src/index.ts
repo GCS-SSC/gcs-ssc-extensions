@@ -3,6 +3,7 @@ export { defineGcsAuditOwnership } from './audit-ownership.js'
 export type { GcsAuditTableOwnership, GcsAuditOwnershipRule } from './audit-ownership.js'
 export { defineGcsExtensionMessages, translateGcsExtensionMessage } from './messages.js'
 export type { GcsExtensionMessages, GcsExtensionMessageValues } from './messages.js'
+export type { WorkflowBpmnTask } from './diagrams.js'
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
 export const GCS_EXTENSION_SDK_VERSION = '0.4.0'
@@ -121,6 +122,7 @@ export const throwFetchResponseError = async (response: Response): Promise<never
 }
 
 export type GcsExtensionSlot =
+  | 'workflow.flow'
   | 'payment.evidence'
   | 'textarea.after'
   | 'bilingual-field.after'
@@ -691,6 +693,7 @@ export type GcsExtensionHostCapability =
   | 'stream-config-page'
   | 'entity-tabs'
   | 'entity-detail-pages'
+  | 'workflow-flow'
   | 'payment-evidence'
   | 'textarea-slots'
   | 'bilingual-field-slots'

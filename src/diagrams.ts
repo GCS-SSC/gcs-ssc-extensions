@@ -33,3 +33,28 @@ export interface FlowDiagramProps {
   filename?: string
   direction?: 'auto' | 'vertical'
 }
+
+export interface WorkflowBpmnTask {
+  id: string
+  label: string
+  groupLabel?: string
+  owner: {
+    key: string
+    kind: 'user' | 'group' | 'initiator' | 'system' | 'unassigned'
+    label: string
+    unavailable: boolean
+  }
+  predecessors: string[]
+}
+
+export interface WorkflowBpmnDefinition {
+  graph: FlowDiagramDefinition
+  tasksByNode: Record<string, WorkflowBpmnTask[]>
+}
+
+export interface WorkflowBpmnViewerProps {
+  definition: WorkflowBpmnDefinition
+  highlightedNodeIds: readonly string[]
+  filename: string
+  extensionKey: string
+}
